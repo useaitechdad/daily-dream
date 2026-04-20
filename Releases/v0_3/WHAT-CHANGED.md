@@ -20,9 +20,9 @@ User testing with our target user (13-year-old) revealed that AI-generated faces
 ## Added
 
 **SVG face controls:**
-- **8 hair styles**: bob, long, pigtails, spiky, curly, buzz, ponytail, afro
+- **10 hair styles**: bob, long, pigtails, spiky, curly, buzz, ponytail, afro, parted, slicked
 - **Hair color picker** (full hex)
-- **6 eye shapes**: round, almond, sleepy, wide, angry, sparkle
+- **8 eye shapes**: round, almond, sleepy, wide, angry, sparkle, anime, huge
 - **Eye color picker**
 - **6 mouth shapes**: smile, smirk, grin, pout, flat, open
 - **4 eyebrow styles**: none, arched, flat, angry

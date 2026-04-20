@@ -18,7 +18,7 @@ Removed:
 - Face prompt template and cache
 
 Added:
-- Expanded procedural SVG face: 8 hair styles, 6 eye shapes, 6 mouth shapes, 4 eyebrow styles, blush toggle, freckles toggle, free hair and eye color pickers
+- Expanded procedural SVG face: 10 hair styles, 8 eye shapes, 6 mouth shapes, 4 eyebrow styles, blush toggle, freckles toggle, free hair and eye color pickers
 - 🎲 Randomize face button
 - Schema v1 → v2 migration for existing saved Miis
 

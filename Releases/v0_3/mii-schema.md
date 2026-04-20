@@ -33,9 +33,9 @@ Each Mii is stored in localStorage under the key `miis:{id}`, where `{id}` is a 
     },
     "accessory": "none | glasses | hat | bow | headphones",
     "face": {
-      "hairStyle": "bob | long | pigtails | spiky | curly | buzz | ponytail | afro",
+      "hairStyle": "bob | long | pigtails | spiky | curly | buzz | ponytail | afro | parted | slicked",
       "hairColor": "#RRGGBB",
-      "eyeShape": "round | almond | sleepy | wide | angry | sparkle",
+      "eyeShape": "round | almond | sleepy | wide | angry | sparkle | anime | huge",
       "eyeColor": "#RRGGBB",
       "mouthShape": "smile | smirk | grin | pout | flat | open",
       "eyebrows": "none | arched | flat | angry",
@@ -108,9 +108,9 @@ Enumerated. `none` renders nothing. Others are SVG fragments rendered on top of 
 
 All face features are procedural SVG, rendered by `lib/miiRenderer.js`.
 
-- `hairStyle`: one of 8 enumerated styles. Each is a set of SVG paths anchored to the head ellipse.
+- `hairStyle`: one of 10 enumerated styles. Each is a set of SVG paths anchored to the head ellipse.
 - `hairColor`: hex color for hair fill.
-- `eyeShape`: one of 6 enumerated shapes. Rendered as a symmetric pair with white glint circles.
+- `eyeShape`: one of 8 enumerated shapes. Rendered as a symmetric pair with white glint circles.
 - `eyeColor`: hex color for eye fill.
 - `mouthShape`: one of 6 enumerated shapes. Rendered as stroke/fill paths.
 - `eyebrows`: one of 4 styles (`none` renders nothing). Color derived from `hairColor`, darkened ~15%.
