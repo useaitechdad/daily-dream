@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Mii Designer — Daily Dream</title>
-  <meta name="description" content="Create adorable chibi characters with a mix of custom outfits and AI-generated faces." />
+  <meta name="description" content="Create adorable chibi characters with custom outfits, hairstyles, and expressive faces." />
 
   <!-- Google Fonts: Nunito with display=swap -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -25,7 +25,7 @@
 
       <!-- Identity -->
       <details class="control-section" open>
-        <summary class="section-title">👤 Identity</summary>
+        <summary class="section-title">👤 Identity <span style="font-size: 0.7em; font-weight: normal; color: var(--text-muted);">(for phase 2)</span></summary>
         <div class="section-body">
           <label class="control-label" for="mii-name">Name</label>
           <input type="text" id="mii-name" class="control-input" maxlength="20" placeholder="Give your Mii a name…" autocomplete="off" />
@@ -119,25 +119,49 @@
       <details class="control-section" open>
         <summary class="section-title">😊 Face</summary>
         <div class="section-body">
-          <label class="control-label" for="face-vibe">Vibe (optional)</label>
-          <input type="text" id="face-vibe" class="control-input" placeholder='e.g. "grumpy wizard with purple hair"' autocomplete="off" />
 
-          <div class="face-actions">
-            <button type="button" id="btn-generate-face" class="btn btn--primary btn--large">
-              <span class="btn-label">✨ Generate Face</span>
-              <span class="btn-spinner" hidden></span>
-            </button>
+          <button type="button" id="btn-randomize-face" class="btn btn--primary btn--large btn--full">🎲 Randomize Face</button>
+
+          <label class="control-label">Hair Style</label>
+          <div class="thumb-row" id="hair-style-row" role="radiogroup" aria-label="Hair style">
+            <!-- JS-generated SVG thumbnail buttons -->
           </div>
 
-          <div id="face-preview-area" class="face-preview" hidden>
-            <p class="face-preview-label">Last generated:</p>
-            <img id="face-preview-img" alt="Generated face preview" class="face-preview-img" />
+          <label class="control-label" for="hair-color">Hair Color</label>
+          <input type="color" id="hair-color" class="control-color" value="#3B2416" />
+
+          <label class="control-label">Eye Shape</label>
+          <div class="thumb-row" id="eye-shape-row" role="radiogroup" aria-label="Eye shape">
+            <!-- JS-generated SVG thumbnail buttons -->
           </div>
 
-          <div id="proxy-warning" class="proxy-warning" hidden>
-            <p>⚠️ The dev server isn't running. Face generation needs it!</p>
-            <code>cd apps/mii-designer && npm install && npm run dev</code>
+          <label class="control-label" for="eye-color">Eye Color</label>
+          <input type="color" id="eye-color" class="control-color" value="#2D1810" />
+
+          <label class="control-label">Mouth</label>
+          <div class="thumb-row" id="mouth-shape-row" role="radiogroup" aria-label="Mouth shape">
+            <!-- JS-generated SVG thumbnail buttons -->
           </div>
+
+          <label class="control-label" for="eyebrow-style">Eyebrows</label>
+          <select id="eyebrow-style" class="control-select">
+            <option value="none">None</option>
+            <option value="arched">Arched</option>
+            <option value="flat">Flat</option>
+            <option value="angry">Angry</option>
+          </select>
+
+          <div class="toggle-row">
+            <label class="toggle-label" for="face-blush">
+              <input type="checkbox" id="face-blush" />
+              Blush
+            </label>
+            <label class="toggle-label" for="face-freckles">
+              <input type="checkbox" id="face-freckles" />
+              Freckles
+            </label>
+          </div>
+
         </div>
       </details>
 
@@ -155,7 +179,7 @@
       <div class="action-bar">
         <button type="button" id="btn-save" class="btn btn--primary">💾 Save</button>
         <button type="button" id="btn-export-one" class="btn btn--secondary">📤 Export</button>
-        <button type="button" id="btn-new" class="btn btn--ghost">✨ New Mii</button>
+        <button type="button" id="btn-new" class="btn btn--secondary">✨ New Mii</button>
       </div>
 
       <div class="gallery-section">
@@ -178,8 +202,7 @@
     Load as a regular script, not type="module", so the app works
     when opened via file:// (double-click). ES modules are blocked
     on that protocol by browser CORS policy.
-    The app.js file is a self-contained bundle that inlines all
-    module dependencies.
+    app.js is a generated IIFE bundle — see main.js + lib/*.js for canonical sources.
   -->
   <script src="app.js"></script>
 </body>

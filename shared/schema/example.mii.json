@@ -1,6 +1,6 @@
 {
   "id": "00000000-0000-4000-8000-000000000001",
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "createdAt": "2026-04-19T00:00:00.000Z",
   "updatedAt": "2026-04-19T00:00:00.000Z",
   "name": "Example",
@@ -17,14 +17,17 @@
       "primaryColor": "#7F77DD",
       "secondaryColor": "#534AB7"
     },
-    "accessory": "glasses"
-  },
-  "face": {
-    "prompt": "",
-    "vibe": "",
-    "imageDataUrl": null,
-    "generatedAt": null,
-    "modelId": "gemini-3.1-flash-image-preview"
+    "accessory": "glasses",
+    "face": {
+      "hairStyle": "bob",
+      "hairColor": "#3B2416",
+      "eyeShape": "round",
+      "eyeColor": "#2D1810",
+      "mouthShape": "smile",
+      "eyebrows": "arched",
+      "blush": true,
+      "freckles": false
+    }
   },
   "meta": {
     "notes": ""

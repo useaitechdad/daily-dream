@@ -1,99 +1,111 @@
 /**
- * Test fixtures for schema validation and UI testing.
- * Each fixture is a valid Mii record with distinct appearance combinations.
+ * Test fixtures — varied v2 Miis that span the parameter space.
+ * Used by miiSchema.test.js and for visual testing.
  *
  * @module fixtures
  */
 
-export const FIXTURES = [
-  {
-    id: '00000000-0000-4000-8000-000000000001',
-    schemaVersion: 1,
-    createdAt: '2026-04-19T00:00:00.000Z',
-    updatedAt: '2026-04-19T00:00:00.000Z',
-    name: 'Example',
-    personality: {
-      introvertExtrovert: 70,
-      calmIntense: 40,
-      seriousSilly: 75,
-    },
-    appearance: {
-      skinTone: 'light',
-      bodyShape: 'regular',
-      outfit: {
-        style: 'hoodie',
-        primaryColor: '#7F77DD',
-        secondaryColor: '#534AB7',
-      },
-      accessory: 'glasses',
-    },
+/** v2 fixture: spiky-haired sporty character */
+export const FIXTURE_KOJI = {
+  id: '00000000-0000-4000-8000-000000000002',
+  schemaVersion: 2,
+  createdAt: '2026-04-19T01:00:00.000Z',
+  updatedAt: '2026-04-19T01:00:00.000Z',
+  name: 'Koji',
+  personality: { introvertExtrovert: 85, calmIntense: 70, seriousSilly: 60 },
+  appearance: {
+    skinTone: 'tan',
+    bodyShape: 'regular',
+    outfit: { style: 'tshirt', primaryColor: '#3A8FDE', secondaryColor: null },
+    accessory: 'none',
     face: {
-      prompt: '',
-      vibe: '',
-      imageDataUrl: null,
-      generatedAt: null,
-      modelId: 'gemini-3.1-flash-image-preview',
+      hairStyle: 'spiky',
+      hairColor: '#1A1A1A',
+      eyeShape: 'wide',
+      eyeColor: '#2D1810',
+      mouthShape: 'grin',
+      eyebrows: 'arched',
+      blush: false,
+      freckles: false,
     },
-    meta: { notes: '' },
   },
-  {
-    id: '00000000-0000-4000-8000-000000000002',
-    schemaVersion: 1,
-    createdAt: '2026-04-19T00:00:00.000Z',
-    updatedAt: '2026-04-19T00:00:00.000Z',
-    name: 'Mika',
-    personality: {
-      introvertExtrovert: 85,
-      calmIntense: 85,
-      seriousSilly: 85,
-    },
-    appearance: {
-      skinTone: 'tan',
-      bodyShape: 'narrow',
-      outfit: {
-        style: 'dress',
-        primaryColor: '#E87CA0',
-        secondaryColor: null,
-      },
-      accessory: 'bow',
-    },
+  meta: { notes: 'Sporty and energetic' },
+};
+
+/** v2 fixture: cute character with pigtails and freckles */
+export const FIXTURE_LUNA = {
+  id: '00000000-0000-4000-8000-000000000003',
+  schemaVersion: 2,
+  createdAt: '2026-04-19T02:00:00.000Z',
+  updatedAt: '2026-04-19T02:00:00.000Z',
+  name: 'Luna',
+  personality: { introvertExtrovert: 30, calmIntense: 20, seriousSilly: 90 },
+  appearance: {
+    skinTone: 'pale',
+    bodyShape: 'narrow',
+    outfit: { style: 'dress', primaryColor: '#E88ACA', secondaryColor: null },
+    accessory: 'bow',
     face: {
-      prompt: '',
-      vibe: 'grumpy wizard with purple hair',
-      imageDataUrl: null,
-      generatedAt: null,
-      modelId: 'gemini-3.1-flash-image-preview',
+      hairStyle: 'pigtails',
+      hairColor: '#D4A853',
+      eyeShape: 'sparkle',
+      eyeColor: '#4A90D9',
+      mouthShape: 'smile',
+      eyebrows: 'arched',
+      blush: true,
+      freckles: true,
     },
-    meta: { notes: 'Test fixture — high energy character' },
   },
-  {
-    id: '00000000-0000-4000-8000-000000000003',
-    schemaVersion: 1,
-    createdAt: '2026-04-19T00:00:00.000Z',
-    updatedAt: '2026-04-19T00:00:00.000Z',
-    name: 'Koji',
-    personality: {
-      introvertExtrovert: 15,
-      calmIntense: 20,
-      seriousSilly: 10,
-    },
-    appearance: {
-      skinTone: 'deep',
-      bodyShape: 'stocky',
-      outfit: {
-        style: 'overalls',
-        primaryColor: '#4A7C59',
-        secondaryColor: '#F5E6CA',
-      },
-      accessory: 'headphones',
-    },
+  meta: { notes: '' },
+};
+
+/** v2 fixture: serious character with afro and flat brows */
+export const FIXTURE_MARCUS = {
+  id: '00000000-0000-4000-8000-000000000004',
+  schemaVersion: 2,
+  createdAt: '2026-04-19T03:00:00.000Z',
+  updatedAt: '2026-04-19T03:00:00.000Z',
+  name: 'Marcus',
+  personality: { introvertExtrovert: 45, calmIntense: 80, seriousSilly: 15 },
+  appearance: {
+    skinTone: 'deep',
+    bodyShape: 'stocky',
+    outfit: { style: 'jacket', primaryColor: '#2A3040', secondaryColor: '#EEEEEE' },
+    accessory: 'headphones',
     face: {
-      prompt: '',
-      vibe: '',
-      imageDataUrl: null,
-      generatedAt: null,
-      modelId: 'gemini-3.1-flash-image-preview',
+      hairStyle: 'afro',
+      hairColor: '#111111',
+      eyeShape: 'angry',
+      eyeColor: '#3A2010',
+      mouthShape: 'flat',
+      eyebrows: 'flat',
+      blush: false,
+      freckles: false,
     },
-    meta: { notes: 'Test fixture — quiet introvert' },
   },
-];
+  meta: { notes: 'Cool and composed' },
+};
+
+/** v1 fixture for migration testing */
+export const FIXTURE_V1_LEGACY = {
+  id: '00000000-0000-4000-8000-000000000099',
+  schemaVersion: 1,
+  createdAt: '2026-04-19T00:00:00.000Z',
+  updatedAt: '2026-04-19T00:00:00.000Z',
+  name: 'OldMii',
+  personality: { introvertExtrovert: 50, calmIntense: 50, seriousSilly: 50 },
+  appearance: {
+    skinTone: 'light',
+    bodyShape: 'regular',
+    outfit: { style: 'tshirt', primaryColor: '#5B8CDE', secondaryColor: null },
+    accessory: 'none',
+  },
+  face: {
+    prompt: 'some old prompt',
+    vibe: 'wizard',
+    imageDataUrl: null,
+    generatedAt: null,
+    modelId: 'gemini-3.1-flash-image-preview',
+  },
+  meta: { notes: '' },
+};

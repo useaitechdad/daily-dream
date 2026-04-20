@@ -4,7 +4,7 @@
  * @module storage
  */
 
-import { validateMii, sanitizeName, TWO_COLOR_STYLES } from '../../../shared/schema/miiSchema.js';
+import { validateMii, sanitizeName, TWO_COLOR_STYLES, migrateV1ToV2 } from '../../../shared/schema/miiSchema.js';
 
 const MII_PREFIX = 'miis:';
 const MAX_MIIS = 50;
@@ -31,12 +31,21 @@ export function saveMii(mii) {
     };
   }
 
-  // Uppercase hex colors
+  // Uppercase hex colors (outfit)
   if (prepared.appearance.outfit.primaryColor) {
     prepared.appearance.outfit.primaryColor = prepared.appearance.outfit.primaryColor.toUpperCase();
   }
   if (prepared.appearance.outfit.secondaryColor) {
     prepared.appearance.outfit.secondaryColor = prepared.appearance.outfit.secondaryColor.toUpperCase();
+  }
+  // Uppercase hex colors (face)
+  if (prepared.appearance.face) {
+    if (prepared.appearance.face.hairColor) {
+      prepared.appearance.face.hairColor = prepared.appearance.face.hairColor.toUpperCase();
+    }
+    if (prepared.appearance.face.eyeColor) {
+      prepared.appearance.face.eyeColor = prepared.appearance.face.eyeColor.toUpperCase();
+    }
   }
 
   const result = validateMii(prepared);
@@ -66,7 +75,13 @@ export function saveMii(mii) {
 export function loadMii(id) {
   try {
     const raw = localStorage.getItem(`${MII_PREFIX}${id}`);
-    return raw ? JSON.parse(raw) : null;
+    if (!raw) return null;
+    let mii = JSON.parse(raw);
+    if (mii && mii.schemaVersion === 1) {
+      mii = migrateV1ToV2(mii);
+      localStorage.setItem(`${MII_PREFIX}${mii.id}`, JSON.stringify(mii));
+    }
+    return mii;
   } catch {
     return null;
   }
@@ -82,7 +97,11 @@ export function listMiis() {
     const key = localStorage.key(i);
     if (key && key.startsWith(MII_PREFIX)) {
       try {
-        const mii = JSON.parse(localStorage.getItem(key));
+        let mii = JSON.parse(localStorage.getItem(key));
+        if (mii && mii.schemaVersion === 1) {
+          mii = migrateV1ToV2(mii);
+          localStorage.setItem(key, JSON.stringify(mii));
+        }
         if (mii) miis.push(mii);
       } catch {
         // Skip corrupted entries
@@ -145,7 +164,12 @@ export function importMiis(jsonString) {
 
   const records = Array.isArray(parsed) ? parsed : [parsed];
 
-  for (const record of records) {
+  for (let record of records) {
+    // Auto-migrate v1 records on import
+    if (record && record.schemaVersion === 1) {
+      record = migrateV1ToV2(record);
+    }
+
     const validation = validateMii(record);
     if (!validation.valid) {
       result.errors.push(`"${record.name || 'unknown'}": ${validation.errors.join('; ')}`);

@@ -1,16 +1,21 @@
 /**
- * Mii Designer — main orchestrator.
+ * Mii Designer — main orchestrator (canonical ES module source).
  * Owns the central state, wires controls to renderers, handles all user interactions.
+ *
+ * NOTE: app.js is a generated IIFE bundle built from this file + lib/*.js + shared/schema/miiSchema.js.
+ * Edit THIS file. Do not edit app.js directly.
  *
  * @module main
  */
 
-import { SKIN_TONES, BODY_SHAPES, OUTFIT_STYLES, ACCESSORIES, TWO_COLOR_STYLES, createBlankMii, sanitizeName } from '../../shared/schema/miiSchema.js';
+import {
+  SKIN_TONES, TWO_COLOR_STYLES,
+  HAIR_STYLES, EYE_SHAPES, MOUTH_SHAPES,
+  DEFAULT_FACE, createBlankMii, sanitizeName, generateUUID,
+} from '../../shared/schema/miiSchema.js';
 import { EXAMPLE_MII } from '../../shared/schema/exampleMii.js';
 import { SKIN_TONE_COLORS } from './lib/palette.js';
-import { renderMii, renderMiiThumbnail } from './lib/miiRenderer.js';
-import { buildFacePrompt } from './lib/faceGenerator.js';
-import { checkProxyAvailable, generateFaceImage } from './lib/apiClient.js';
+import { renderMii, renderMiiThumbnail, renderFaceThumb } from './lib/miiRenderer.js';
 import { saveMii, loadMii, listMiis, deleteMii, exportAll, exportOne, importMiis, downloadJson } from './lib/storage.js';
 import { showToast } from './lib/toast.js';
 
@@ -21,9 +26,6 @@ import { showToast } from './lib/toast.js';
 /** @type {object} The current Mii being edited */
 let state = structuredClone(EXAMPLE_MII);
 
-/** @type {boolean} Whether the dev proxy is available (checked once on startup) */
-let proxyAvailable = false;
-
 /** @type {Function[]} Subscriber callbacks */
 const subscribers = [];
 
@@ -32,27 +34,17 @@ function getState() {
 }
 
 function setState(patch) {
-  if (typeof patch === 'function') {
-    state = { ...state, ...patch(state) };
-  } else {
-    state = { ...state, ...patch };
+  let p = typeof patch === 'function' ? patch(state) : patch;
+  if (p.personality) p.personality = { ...state.personality, ...p.personality };
+  if (p.appearance) {
+    let app = { ...state.appearance, ...p.appearance };
+    if (p.appearance.outfit) app.outfit = { ...state.appearance.outfit, ...p.appearance.outfit };
+    if (p.appearance.face)   app.face   = { ...state.appearance.face,   ...p.appearance.face };
+    p.appearance = app;
   }
-  // Deep-merge nested objects
-  if (patch.personality) {
-    state.personality = { ...state.personality, ...patch.personality };
-  }
-  if (patch.appearance) {
-    state.appearance = { ...state.appearance, ...patch.appearance };
-    if (patch.appearance.outfit) {
-      state.appearance.outfit = { ...state.appearance.outfit, ...patch.appearance.outfit };
-    }
-  }
-  if (patch.face) {
-    state.face = { ...state.face, ...patch.face };
-  }
-  if (patch.meta) {
-    state.meta = { ...state.meta, ...patch.meta };
-  }
+  if (p.meta) p.meta = { ...state.meta, ...p.meta };
+
+  state = { ...state, ...p };
   notify();
 }
 
@@ -61,13 +53,11 @@ function subscribe(fn) {
 }
 
 function notify() {
-  for (const fn of subscribers) {
-    fn(state);
-  }
+  for (const fn of subscribers) fn(state);
 }
 
 /**
- * Load a full Mii object into the editor state.
+ * Load a full Mii object into the editor state and sync all controls.
  * @param {object} mii
  */
 function loadIntoEditor(mii) {
@@ -80,36 +70,39 @@ function loadIntoEditor(mii) {
    DOM References
    ================================================================ */
 
-const $name = document.getElementById('mii-name');
-const $sliderIE = document.getElementById('slider-introvert-extrovert');
-const $sliderCI = document.getElementById('slider-calm-intense');
-const $sliderSS = document.getElementById('slider-serious-silly');
-const $notes = document.getElementById('mii-notes');
-const $skinSwatches = document.getElementById('skin-tone-swatches');
-const $bodyShapeRow = document.getElementById('body-shape-row');
-const $outfitStyle = document.getElementById('outfit-style');
-const $primaryColor = document.getElementById('outfit-primary-color');
+const $name           = document.getElementById('mii-name');
+const $sliderIE       = document.getElementById('slider-introvert-extrovert');
+const $sliderCI       = document.getElementById('slider-calm-intense');
+const $sliderSS       = document.getElementById('slider-serious-silly');
+const $notes          = document.getElementById('mii-notes');
+const $skinSwatches   = document.getElementById('skin-tone-swatches');
+const $bodyShapeRow   = document.getElementById('body-shape-row');
+const $outfitStyle    = document.getElementById('outfit-style');
+const $primaryColor   = document.getElementById('outfit-primary-color');
 const $secondaryColor = document.getElementById('outfit-secondary-color');
 const $secondaryColorRow = document.getElementById('secondary-color-row');
-const $accessoryRow = document.getElementById('accessory-row');
-const $faceVibe = document.getElementById('face-vibe');
-const $btnGenerateFace = document.getElementById('btn-generate-face');
-const $btnNewVibe = document.getElementById('btn-new-vibe');
-const $facePreviewArea = document.getElementById('face-preview-area');
-const $facePreviewImg = document.getElementById('face-preview-img');
-const $proxyWarning = document.getElementById('proxy-warning');
+const $accessoryRow   = document.getElementById('accessory-row');
+const $btnRandomizeFace = document.getElementById('btn-randomize-face');
+const $hairStyleRow   = document.getElementById('hair-style-row');
+const $hairColor      = document.getElementById('hair-color');
+const $eyeShapeRow    = document.getElementById('eye-shape-row');
+const $eyeColor       = document.getElementById('eye-color');
+const $mouthShapeRow  = document.getElementById('mouth-shape-row');
+const $eyebrowStyle   = document.getElementById('eyebrow-style');
+const $faceBlush      = document.getElementById('face-blush');
+const $faceFreckles   = document.getElementById('face-freckles');
 const $previewContainer = document.getElementById('mii-preview-container');
-const $previewName = document.getElementById('preview-name');
-const $btnSave = document.getElementById('btn-save');
-const $btnExportOne = document.getElementById('btn-export-one');
-const $btnNew = document.getElementById('btn-new');
-const $btnExportAll = document.getElementById('btn-export-all');
-const $btnImport = document.getElementById('btn-import');
-const $galleryGrid = document.getElementById('gallery-grid');
-const $galleryEmpty = document.getElementById('gallery-empty');
+const $previewName    = document.getElementById('preview-name');
+const $btnSave        = document.getElementById('btn-save');
+const $btnExportOne   = document.getElementById('btn-export-one');
+const $btnNew         = document.getElementById('btn-new');
+const $btnExportAll   = document.getElementById('btn-export-all');
+const $btnImport      = document.getElementById('btn-import');
+const $galleryGrid    = document.getElementById('gallery-grid');
+const $galleryEmpty   = document.getElementById('gallery-empty');
 
 /* ================================================================
-   Populate dynamic controls
+   Build dynamic controls
    ================================================================ */
 
 function buildSkinSwatches() {
@@ -127,31 +120,61 @@ function buildSkinSwatches() {
   }
 }
 
+/**
+ * Build a row of SVG thumbnail buttons for a face feature.
+ * @param {HTMLElement} container
+ * @param {string[]} values - Enum values for this feature
+ * @param {string} featureKey - Key in appearance.face (e.g. 'hairStyle')
+ * @param {function(string): object} patchBuilder - Returns a facePatch for renderFaceThumb
+ * @param {string} dataAttr - data-* attribute name on each button
+ */
+function buildThumbRow(container, values, featureKey, patchBuilder, dataAttr) {
+  container.innerHTML = '';
+  for (const value of values) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'thumb-btn';
+    btn.dataset[dataAttr] = value;
+    btn.setAttribute('aria-label', value);
+    btn.setAttribute('role', 'radio');
+    btn.setAttribute('aria-checked', 'false');
+    btn.setAttribute('title', value);
+    const skinColor = SKIN_TONE_COLORS[state.appearance.skinTone] || SKIN_TONE_COLORS.light;
+    btn.innerHTML = renderFaceThumb(patchBuilder(value), skinColor);
+    container.appendChild(btn);
+  }
+}
+
+function buildFaceThumbRows() {
+  buildThumbRow($hairStyleRow, HAIR_STYLES, 'hairStyle',
+    (v) => ({ hairStyle: v, hairColor: state.appearance.face.hairColor || DEFAULT_FACE.hairColor }),
+    'hairStyle');
+  buildThumbRow($eyeShapeRow, EYE_SHAPES, 'eyeShape',
+    (v) => ({ eyeShape: v, eyeColor: state.appearance.face.eyeColor || DEFAULT_FACE.eyeColor }),
+    'eyeShape');
+  buildThumbRow($mouthShapeRow, MOUTH_SHAPES, 'mouthShape',
+    (v) => ({ mouthShape: v }),
+    'mouthShape');
+}
+
 /* ================================================================
    Control → State binding
    ================================================================ */
 
 function wireControls() {
   // Name
-  $name.addEventListener('input', () => {
-    setState({ name: $name.value });
-  });
+  $name.addEventListener('input', () => setState({ name: $name.value }));
 
   // Personality sliders
-  $sliderIE.addEventListener('input', () => {
-    setState({ personality: { introvertExtrovert: parseInt($sliderIE.value, 10) } });
-  });
-  $sliderCI.addEventListener('input', () => {
-    setState({ personality: { calmIntense: parseInt($sliderCI.value, 10) } });
-  });
-  $sliderSS.addEventListener('input', () => {
-    setState({ personality: { seriousSilly: parseInt($sliderSS.value, 10) } });
-  });
+  $sliderIE.addEventListener('input', () =>
+    setState({ personality: { introvertExtrovert: parseInt($sliderIE.value, 10) } }));
+  $sliderCI.addEventListener('input', () =>
+    setState({ personality: { calmIntense: parseInt($sliderCI.value, 10) } }));
+  $sliderSS.addEventListener('input', () =>
+    setState({ personality: { seriousSilly: parseInt($sliderSS.value, 10) } }));
 
   // Notes
-  $notes.addEventListener('input', () => {
-    setState({ meta: { notes: $notes.value } });
-  });
+  $notes.addEventListener('input', () => setState({ meta: { notes: $notes.value } }));
 
   // Skin tone swatches
   $skinSwatches.addEventListener('click', (e) => {
@@ -175,19 +198,16 @@ function wireControls() {
     if (!needsSecondary) {
       update.appearance.outfit.secondaryColor = null;
     } else if (!state.appearance.outfit.secondaryColor) {
-      // Default secondary if switching to a two-color style
       update.appearance.outfit.secondaryColor = '#3A6DB5';
     }
     setState(update);
   });
 
-  // Colors
-  $primaryColor.addEventListener('input', () => {
-    setState({ appearance: { outfit: { primaryColor: $primaryColor.value.toUpperCase() } } });
-  });
-  $secondaryColor.addEventListener('input', () => {
-    setState({ appearance: { outfit: { secondaryColor: $secondaryColor.value.toUpperCase() } } });
-  });
+  // Outfit colors
+  $primaryColor.addEventListener('input', () =>
+    setState({ appearance: { outfit: { primaryColor: $primaryColor.value.toUpperCase() } } }));
+  $secondaryColor.addEventListener('input', () =>
+    setState({ appearance: { outfit: { secondaryColor: $secondaryColor.value.toUpperCase() } } }));
 
   // Accessory
   $accessoryRow.addEventListener('click', (e) => {
@@ -196,54 +216,53 @@ function wireControls() {
     setState({ appearance: { accessory: btn.dataset.accessory } });
   });
 
-  // Face vibe
-  $faceVibe.addEventListener('input', () => {
-    setState({ face: { vibe: $faceVibe.value } });
+  // Face — hair style thumbnails
+  $hairStyleRow.addEventListener('click', (e) => {
+    const btn = e.target.closest('.thumb-btn');
+    if (!btn) return;
+    setState({ appearance: { face: { hairStyle: btn.dataset.hairStyle } } });
   });
 
-  // Generate face
-  $btnGenerateFace.addEventListener('click', handleGenerateFace);
+  // Face — hair color
+  $hairColor.addEventListener('input', () =>
+    setState({ appearance: { face: { hairColor: $hairColor.value.toUpperCase() } } }));
 
-  // New vibe
-  $btnNewVibe.addEventListener('click', () => {
-    $faceVibe.value = '';
-    setState({ face: { vibe: '' } });
+  // Face — eye shape thumbnails
+  $eyeShapeRow.addEventListener('click', (e) => {
+    const btn = e.target.closest('.thumb-btn');
+    if (!btn) return;
+    setState({ appearance: { face: { eyeShape: btn.dataset.eyeShape } } });
   });
 
-  // Save
+  // Face — eye color
+  $eyeColor.addEventListener('input', () =>
+    setState({ appearance: { face: { eyeColor: $eyeColor.value.toUpperCase() } } }));
+
+  // Face — mouth shape thumbnails
+  $mouthShapeRow.addEventListener('click', (e) => {
+    const btn = e.target.closest('.thumb-btn');
+    if (!btn) return;
+    setState({ appearance: { face: { mouthShape: btn.dataset.mouthShape } } });
+  });
+
+  // Face — eyebrows
+  $eyebrowStyle.addEventListener('change', () =>
+    setState({ appearance: { face: { eyebrows: $eyebrowStyle.value } } }));
+
+  // Face — blush / freckles
+  $faceBlush.addEventListener('change', () =>
+    setState({ appearance: { face: { blush: $faceBlush.checked } } }));
+  $faceFreckles.addEventListener('change', () =>
+    setState({ appearance: { face: { freckles: $faceFreckles.checked } } }));
+
+  // Randomize face
+  $btnRandomizeFace.addEventListener('click', handleRandomizeFace);
+
+  // Save / Export / New
   $btnSave.addEventListener('click', handleSave);
-
-  // Export one
-  $btnExportOne.addEventListener('click', () => {
-    const s = getState();
-    if (!s.name.trim()) {
-      showToast('Give your Mii a name before exporting!', 'error');
-      return;
-    }
-    const filename = `${sanitizeName(s.name)}.mii.json`;
-    downloadJson(filename, exportOne(s));
-    showToast(`Exported ${s.name}!`, 'success');
-  });
-
-  // New Mii
-  $btnNew.addEventListener('click', () => {
-    const blank = createBlankMii();
-    loadIntoEditor(blank);
-    showToast('New Mii created — make it yours!', 'info');
-  });
-
-  // Export all
-  $btnExportAll.addEventListener('click', () => {
-    const all = listMiis();
-    if (all.length === 0) {
-      showToast('No Miis to export yet!', 'info');
-      return;
-    }
-    downloadJson('miis.json', exportAll());
-    showToast(`Exported ${all.length} Mii${all.length > 1 ? 's' : ''}!`, 'success');
-  });
-
-  // Import
+  $btnExportOne.addEventListener('click', handleExportOne);
+  $btnNew.addEventListener('click', handleNew);
+  $btnExportAll.addEventListener('click', handleExportAll);
   $btnImport.addEventListener('change', handleImport);
 }
 
@@ -251,108 +270,101 @@ function wireControls() {
    Handlers
    ================================================================ */
 
-async function handleGenerateFace() {
-  if (!proxyAvailable) {
-    $proxyWarning.hidden = false;
-    showToast('Dev server not running — see the instructions below', 'error');
-    return;
-  }
-
-  const s = getState();
-  if (!s.name.trim()) {
-    showToast('Name your Mii first so the face matches!', 'error');
-    return;
-  }
-
-  // Show loading
-  $btnGenerateFace.disabled = true;
-  const $label = $btnGenerateFace.querySelector('.btn-label');
-  const $spinner = $btnGenerateFace.querySelector('.btn-spinner');
-  $label.textContent = 'Generating…';
-  $spinner.hidden = false;
-
-  const prompt = buildFacePrompt(s);
-
-  try {
-    const result = await generateFaceImage(prompt);
-
-    if (result.error) {
-      showToast(result.error, 'error');
-      return;
-    }
-
-    setState({
+function handleRandomizeFace() {
+  const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+  const randomHex = () => {
+    const h = Math.floor(Math.random() * 0xFFFFFF).toString(16).padStart(6, '0').toUpperCase();
+    return `#${h}`;
+  };
+  setState({
+    appearance: {
       face: {
-        imageDataUrl: result.imageDataUrl,
-        generatedAt: result.generatedAt,
-        prompt: prompt,
-        modelId: 'gemini-3.1-flash-image-preview',
+        hairStyle:  pick(HAIR_STYLES),
+        hairColor:  randomHex(),
+        eyeShape:   pick(EYE_SHAPES),
+        eyeColor:   randomHex(),
+        mouthShape: pick(MOUTH_SHAPES),
+        eyebrows:   pick(['none', 'arched', 'flat', 'angry']),
+        blush:      Math.random() > 0.5,
+        freckles:   Math.random() > 0.7,
       },
-    });
-
-    if (result.fromCache) {
-      showToast('Face loaded from cache ✨', 'info');
-    } else {
-      showToast('Face generated! Looking good ✨', 'success');
-    }
-
-    // Show face preview
-    $facePreviewImg.src = result.imageDataUrl;
-    $facePreviewArea.hidden = false;
-  } catch (err) {
-    showToast(`Something went wrong: ${err.message}`, 'error');
-  } finally {
-    $label.textContent = '✨ Generate Face';
-    $spinner.hidden = true;
-    $btnGenerateFace.disabled = false;
-  }
+    },
+  });
+  showToast('New face rolled! 🎲', 'success');
 }
 
 function handleSave() {
+  try {
+    const s = getState();
+    if (!s.name.trim()) {
+      showToast('Your Mii needs a name!', 'error');
+      $name.focus();
+      return;
+    }
+    const sanitized = sanitizeName(s.name);
+    state.name = sanitized;
+    state.updatedAt = new Date().toISOString();
+
+    // Workaround for usability: If they are editing the default EXAMPLE_MII template,
+    // saving it should create a NEW Mii instead of overwriting the example template's ID forever.
+    if (state.id === EXAMPLE_MII.id) {
+      state.id = generateUUID();
+    }
+
+    const result = saveMii(state);
+    if (result.ok) {
+      showToast(`${sanitized} saved! 💾`, 'success');
+      refreshGallery();
+    } else {
+      showToast(result.errors.join('\n'), 'error');
+    }
+  } catch (err) {
+    showToast(`Unexpected error: ${err.message}`, 'error');
+    console.error("Save error:", err);
+  }
+}
+
+function handleExportOne() {
   const s = getState();
   if (!s.name.trim()) {
-    showToast('Your Mii needs a name!', 'error');
-    $name.focus();
+    showToast('Give your Mii a name before exporting!', 'error');
     return;
   }
+  const filename = `${sanitizeName(s.name)}.mii.json`;
+  downloadJson(filename, exportOne(s));
+  showToast(`Exported ${s.name}!`, 'success');
+}
 
-  // Sanitize name before save
-  const sanitized = sanitizeName(s.name);
-  state.name = sanitized;
-  state.updatedAt = new Date().toISOString();
+function handleNew() {
+  loadIntoEditor(createBlankMii());
+  showToast('New Mii created — make it yours!', 'info');
+}
 
-  const result = saveMii(state);
-  if (result.ok) {
-    showToast(`${sanitized} saved! 💾`, 'success');
-    refreshGallery();
-  } else {
-    showToast(result.errors.join('\n'), 'error');
+function handleExportAll() {
+  const all = listMiis();
+  if (all.length === 0) {
+    showToast('No Miis to export yet!', 'info');
+    return;
   }
+  downloadJson('miis.json', exportAll());
+  showToast(`Exported ${all.length} Mii${all.length > 1 ? 's' : ''}!`, 'success');
 }
 
 function handleImport(e) {
   const file = e.target.files[0];
   if (!file) return;
-
   const reader = new FileReader();
   reader.onload = () => {
     const result = importMiis(reader.result);
-
-    if (result.errors.length > 0) {
-      showToast(`Import issues: ${result.errors.join('; ')}`, 'error');
-    }
+    if (result.errors.length > 0) showToast(`Import issues: ${result.errors.join('; ')}`, 'error');
     if (result.imported.length > 0) {
       showToast(`Imported ${result.imported.length} Mii${result.imported.length > 1 ? 's' : ''}!`, 'success');
       refreshGallery();
     }
-    if (result.skipped.length > 0) {
-      showToast(`Skipped ${result.skipped.length} duplicate${result.skipped.length > 1 ? 's' : ''}`, 'info');
-    }
+    if (result.skipped.length > 0) showToast(`Skipped ${result.skipped.length} duplicate${result.skipped.length > 1 ? 's' : ''}`, 'info');
     if (result.imported.length === 0 && result.errors.length === 0 && result.skipped.length > 0) {
       showToast('All Miis already exist — nothing new to import', 'info');
     }
-
-    // Reset file input so the same file can be re-imported
     e.target.value = '';
   };
   reader.readAsText(file);
@@ -368,26 +380,40 @@ function renderPreview(s) {
 }
 
 function updateControlHighlights(s) {
-  // Skin tone swatches
+  // Skin swatches
   for (const btn of $skinSwatches.querySelectorAll('.swatch-btn')) {
-    const isActive = btn.dataset.tone === s.appearance.skinTone;
-    btn.classList.toggle('active', isActive);
-    btn.setAttribute('aria-checked', isActive ? 'true' : 'false');
+    const active = btn.dataset.tone === s.appearance.skinTone;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-checked', active ? 'true' : 'false');
   }
-
   // Body shape
   for (const btn of $bodyShapeRow.querySelectorAll('.shape-btn')) {
     btn.classList.toggle('active', btn.dataset.shape === s.appearance.bodyShape);
   }
-
   // Accessory
   for (const btn of $accessoryRow.querySelectorAll('.accessory-btn')) {
     btn.classList.toggle('active', btn.dataset.accessory === s.appearance.accessory);
   }
+  // Secondary color row
+  $secondaryColorRow.hidden = !TWO_COLOR_STYLES.includes(s.appearance.outfit.style);
 
-  // Secondary color visibility
-  const needsSecondary = TWO_COLOR_STYLES.includes(s.appearance.outfit.style);
-  $secondaryColorRow.hidden = !needsSecondary;
+  // Face thumb rows
+  const face = s.appearance.face || {};
+  for (const btn of $hairStyleRow.querySelectorAll('.thumb-btn')) {
+    const active = btn.dataset.hairStyle === face.hairStyle;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-checked', active ? 'true' : 'false');
+  }
+  for (const btn of $eyeShapeRow.querySelectorAll('.thumb-btn')) {
+    const active = btn.dataset.eyeShape === face.eyeShape;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-checked', active ? 'true' : 'false');
+  }
+  for (const btn of $mouthShapeRow.querySelectorAll('.thumb-btn')) {
+    const active = btn.dataset.mouthShape === face.mouthShape;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-checked', active ? 'true' : 'false');
+  }
 }
 
 /* ================================================================
@@ -397,20 +423,13 @@ function updateControlHighlights(s) {
 function refreshGallery() {
   const miis = listMiis();
   const currentId = getState().id;
+  $galleryGrid.querySelectorAll('.gallery-card').forEach(c => c.remove());
 
   if (miis.length === 0) {
     $galleryEmpty.hidden = false;
-    // Clear any existing cards
-    const cards = $galleryGrid.querySelectorAll('.gallery-card');
-    cards.forEach(c => c.remove());
     return;
   }
-
   $galleryEmpty.hidden = true;
-
-  // Rebuild gallery
-  const existingCards = $galleryGrid.querySelectorAll('.gallery-card');
-  existingCards.forEach(c => c.remove());
 
   for (const mii of miis) {
     const card = document.createElement('div');
@@ -422,16 +441,15 @@ function refreshGallery() {
     preview.className = 'gallery-card-preview';
     preview.innerHTML = renderMiiThumbnail(mii);
 
-    const name = document.createElement('div');
-    name.className = 'gallery-card-name';
-    name.textContent = mii.name;
+    const nameEl = document.createElement('div');
+    nameEl.className = 'gallery-card-name';
+    nameEl.textContent = mii.name;
 
     const del = document.createElement('button');
     del.className = 'gallery-card-delete';
     del.type = 'button';
     del.textContent = '×';
     del.setAttribute('aria-label', `Delete ${mii.name}`);
-
     del.addEventListener('click', (e) => {
       e.stopPropagation();
       deleteMii(mii.id);
@@ -449,63 +467,58 @@ function refreshGallery() {
     });
 
     card.appendChild(preview);
-    card.appendChild(name);
+    card.appendChild(nameEl);
     card.appendChild(del);
     $galleryGrid.appendChild(card);
   }
 }
 
 /* ================================================================
-   Sync controls to state (used when loading a Mii)
+   Sync controls to loaded state
    ================================================================ */
 
 function syncControlsToState() {
   const s = state;
-  $name.value = s.name;
+  $name.value    = s.name;
   $sliderIE.value = s.personality.introvertExtrovert;
   $sliderCI.value = s.personality.calmIntense;
   $sliderSS.value = s.personality.seriousSilly;
-  $notes.value = s.meta.notes;
-  $outfitStyle.value = s.appearance.outfit.style;
-  $primaryColor.value = s.appearance.outfit.primaryColor;
+  $notes.value   = s.meta.notes;
+  $outfitStyle.value   = s.appearance.outfit.style;
+  $primaryColor.value  = s.appearance.outfit.primaryColor;
   if (s.appearance.outfit.secondaryColor) {
     $secondaryColor.value = s.appearance.outfit.secondaryColor;
   }
-  $faceVibe.value = s.face.vibe;
 
-  // Face preview
-  if (s.face.imageDataUrl) {
-    $facePreviewImg.src = s.face.imageDataUrl;
-    $facePreviewArea.hidden = false;
-  } else {
-    $facePreviewArea.hidden = true;
-  }
+  // Face controls
+  const face = s.appearance.face || {};
+  if (face.hairColor) $hairColor.value = face.hairColor;
+  if (face.eyeColor)  $eyeColor.value  = face.eyeColor;
+  $eyebrowStyle.value  = face.eyebrows  || 'arched';
+  $faceBlush.checked   = !!face.blush;
+  $faceFreckles.checked = !!face.freckles;
+
+  // Rebuild thumbnails so they reflect current hair/eye colors
+  buildFaceThumbRows();
 }
 
 /* ================================================================
    Initialization
    ================================================================ */
 
-async function init() {
+function init() {
   buildSkinSwatches();
+  buildFaceThumbRows();
   wireControls();
 
-  // Subscribe renderers
   subscribe(renderPreview);
   subscribe(updateControlHighlights);
 
-  // Check proxy once on startup
-  proxyAvailable = await checkProxyAvailable();
-  if (!proxyAvailable) {
-    $proxyWarning.hidden = false;
-  }
-
-  // Load initial state: if any Miis saved, load the most recent; otherwise use Example
+  // Load initial state: most recent saved Mii or the Example
   const saved = listMiis();
   if (saved.length > 0) {
     loadIntoEditor(saved[0]);
   } else {
-    // Load the Example Mii
     loadIntoEditor(structuredClone(EXAMPLE_MII));
   }
 

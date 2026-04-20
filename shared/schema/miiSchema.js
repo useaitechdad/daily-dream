@@ -5,7 +5,7 @@
  * @module miiSchema
  */
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 export const SKIN_TONES = ['pale', 'light', 'tan', 'olive', 'brown', 'deep'];
 export const BODY_SHAPES = ['narrow', 'regular', 'stocky'];
@@ -15,8 +15,26 @@ export const ACCESSORIES = ['none', 'glasses', 'hat', 'bow', 'headphones'];
 /** Outfit styles that use a secondary color */
 export const TWO_COLOR_STYLES = ['hoodie', 'stripes', 'jacket', 'overalls'];
 
+/** Face feature enums */
+export const HAIR_STYLES = ['bob', 'long', 'pigtails', 'spiky', 'curly', 'buzz', 'ponytail', 'afro', 'parted', 'slicked'];
+export const EYE_SHAPES = ['round', 'almond', 'sleepy', 'wide', 'angry', 'sparkle', 'anime', 'huge'];
+export const MOUTH_SHAPES = ['smile', 'smirk', 'grin', 'pout', 'flat', 'open'];
+export const EYEBROW_STYLES = ['none', 'arched', 'flat', 'angry'];
+
 const HEX_COLOR_RE = /^#[0-9A-F]{6}$/;
 const EMOJI_RE = /[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu;
+
+/** Default face values (Luna's look) */
+export const DEFAULT_FACE = {
+  hairStyle: 'bob',
+  hairColor: '#3B2416',
+  eyeShape: 'round',
+  eyeColor: '#2D1810',
+  mouthShape: 'smile',
+  eyebrows: 'arched',
+  blush: true,
+  freckles: false,
+};
 
 /**
  * Strip emoji from a string.
@@ -43,7 +61,7 @@ export function sanitizeName(raw) {
  */
 
 /**
- * Validate a Mii object against the canonical schema.
+ * Validate a Mii object against the v2 schema.
  * @param {object} obj
  * @returns {ValidationResult}
  */
@@ -125,26 +143,36 @@ export function validateMii(obj) {
         }
       }
     }
-  }
 
-  // face
-  if (!obj.face || typeof obj.face !== 'object') {
-    errors.push('face must be an object');
-  } else {
-    if (typeof obj.face.prompt !== 'string') {
-      errors.push('face.prompt must be a string');
-    }
-    if (typeof obj.face.vibe !== 'string') {
-      errors.push('face.vibe must be a string (use empty string, not null)');
-    }
-    if (obj.face.imageDataUrl !== null && typeof obj.face.imageDataUrl !== 'string') {
-      errors.push('face.imageDataUrl must be a string or null');
-    }
-    if (obj.face.generatedAt !== null && (typeof obj.face.generatedAt !== 'string' || isNaN(Date.parse(obj.face.generatedAt)))) {
-      errors.push('face.generatedAt must be a valid ISO 8601 timestamp or null');
-    }
-    if (obj.face.modelId !== 'gemini-3.1-flash-image-preview') {
-      errors.push('face.modelId must be "gemini-3.1-flash-image-preview"');
+    // face
+    if (!obj.appearance.face || typeof obj.appearance.face !== 'object') {
+      errors.push('appearance.face must be an object');
+    } else {
+      const face = obj.appearance.face;
+      if (!HAIR_STYLES.includes(face.hairStyle)) {
+        errors.push(`appearance.face.hairStyle must be one of: ${HAIR_STYLES.join(', ')}`);
+      }
+      if (typeof face.hairColor !== 'string' || !HEX_COLOR_RE.test(face.hairColor)) {
+        errors.push('appearance.face.hairColor must be a hex color like #RRGGBB (uppercase)');
+      }
+      if (!EYE_SHAPES.includes(face.eyeShape)) {
+        errors.push(`appearance.face.eyeShape must be one of: ${EYE_SHAPES.join(', ')}`);
+      }
+      if (typeof face.eyeColor !== 'string' || !HEX_COLOR_RE.test(face.eyeColor)) {
+        errors.push('appearance.face.eyeColor must be a hex color like #RRGGBB (uppercase)');
+      }
+      if (!MOUTH_SHAPES.includes(face.mouthShape)) {
+        errors.push(`appearance.face.mouthShape must be one of: ${MOUTH_SHAPES.join(', ')}`);
+      }
+      if (!EYEBROW_STYLES.includes(face.eyebrows)) {
+        errors.push(`appearance.face.eyebrows must be one of: ${EYEBROW_STYLES.join(', ')}`);
+      }
+      if (typeof face.blush !== 'boolean') {
+        errors.push('appearance.face.blush must be a boolean');
+      }
+      if (typeof face.freckles !== 'boolean') {
+        errors.push('appearance.face.freckles must be a boolean');
+      }
     }
   }
 
@@ -163,13 +191,46 @@ export function validateMii(obj) {
 }
 
 /**
+ * Migrate a v1 Mii record to v2.
+ * Pure function — does not mutate the input.
+ *
+ * @param {object} v1Mii - A schemaVersion 1 record
+ * @returns {object} A valid schemaVersion 2 record
+ */
+export function migrateV1ToV2(v1Mii) {
+  const migrated = JSON.parse(JSON.stringify(v1Mii));
+
+  // Drop the top-level face object
+  delete migrated.face;
+
+  // Add appearance.face with defaults
+  migrated.appearance.face = { ...DEFAULT_FACE };
+
+  // Bump schema version
+  migrated.schemaVersion = SCHEMA_VERSION;
+
+  return migrated;
+}
+
+/**
  * Create a blank Mii with sensible defaults. Caller must set a name before saving.
  * @returns {object}
  */
+export function generateUUID() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
 export function createBlankMii() {
   const now = new Date().toISOString();
   return {
-    id: crypto.randomUUID(),
+    id: generateUUID(),
     schemaVersion: SCHEMA_VERSION,
     createdAt: now,
     updatedAt: now,
@@ -188,13 +249,7 @@ export function createBlankMii() {
         secondaryColor: null,
       },
       accessory: 'none',
-    },
-    face: {
-      prompt: '',
-      vibe: '',
-      imageDataUrl: null,
-      generatedAt: null,
-      modelId: 'gemini-3.1-flash-image-preview',
+      face: { ...DEFAULT_FACE },
     },
     meta: {
       notes: '',

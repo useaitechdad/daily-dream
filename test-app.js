@@ -40,8 +40,8 @@ const ACCESSORIES = ['none', 'glasses', 'hat', 'bow', 'headphones'];
 const TWO_COLOR_STYLES = ['hoodie', 'stripes', 'jacket', 'overalls'];
 
 /** Face feature enums */
-const HAIR_STYLES = ['bob', 'long', 'pigtails', 'spiky', 'curly', 'buzz', 'ponytail', 'afro', 'parted', 'slicked'];
-const EYE_SHAPES = ['round', 'almond', 'sleepy', 'wide', 'angry', 'sparkle', 'anime', 'huge'];
+const HAIR_STYLES = ['bob', 'long', 'pigtails', 'spiky', 'curly', 'buzz', 'ponytail', 'afro'];
+const EYE_SHAPES = ['round', 'almond', 'sleepy', 'wide', 'angry', 'sparkle'];
 const MOUTH_SHAPES = ['smile', 'smirk', 'grin', 'pout', 'flat', 'open'];
 const EYEBROW_STYLES = ['none', 'arched', 'flat', 'angry'];
 
@@ -677,22 +677,6 @@ function renderEyes(shape, color) {
         <circle cx="${rx - 3}" cy="${ey - 4}" r="4" fill="#FFFFFF" />
         <circle cx="${rx + 3}" cy="${ey + 3}" r="2" fill="#FFFFFF" />
       `;
-    case 'anime':
-      return `
-        <ellipse cx="${lx}" cy="${ey}" rx="11" ry="16" fill="${color}" />
-        <ellipse cx="${rx}" cy="${ey}" rx="11" ry="16" fill="${color}" />
-        <ellipse cx="${lx - 3}" cy="${ey - 6}" rx="4" ry="6" fill="#FFFFFF" />
-        <circle cx="${lx + 3}" cy="${ey + 6}" r="2.5" fill="#FFFFFF" />
-        <ellipse cx="${rx - 3}" cy="${ey - 6}" rx="4" ry="6" fill="#FFFFFF" />
-        <circle cx="${rx + 3}" cy="${ey + 6}" r="2.5" fill="#FFFFFF" />
-      `;
-    case 'huge':
-      return `
-        <circle cx="${lx}" cy="${ey}" r="14" fill="${color}" />
-        <circle cx="${rx}" cy="${ey}" r="14" fill="${color}" />
-        <circle cx="${lx - 4}" cy="${ey - 5}" r="5" fill="#FFFFFF" />
-        <circle cx="${rx - 4}" cy="${ey - 5}" r="5" fill="#FFFFFF" />
-      `;
     default:
       return renderEyes('round', color);
   }
@@ -930,28 +914,6 @@ function renderHair(style, color) {
       ];
       return balls.map(({ x, y, r }) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${color}" />`).join('');
     }
-    case 'parted':
-      /* Sweeps outward from a center part, exposing the forehead and eyebrows */
-      return `
-        <path d="M${cx - rx} ${cy + 20}
-                 Q${cx - rx - 10} ${topY - 10} ${cx} ${topY - 18}
-                 Q${cx + rx + 10} ${topY - 10} ${cx + rx} ${cy + 20}
-                 Q${cx + rx - 10} ${cy} ${cx + rx - 15} ${cy - 30}
-                 Q${cx + rx - 20} ${cy - 70} ${cx} ${topY + 5}
-                 Q${cx - rx + 20} ${cy - 70} ${cx - rx + 15} ${cy - 30}
-                 Q${cx - rx + 10} ${cy} ${cx - rx} ${cy + 20} Z"
-              fill="${color}" />
-      `;
-    case 'slicked':
-      /* Pulled tight back over the top of the head, leaving a clean, high hairline */
-      return `
-        <path d="M${cx - rx + 5} ${cy}
-                 Q${cx - rx - 10} ${topY - 5} ${cx} ${topY - 16}
-                 Q${cx + rx + 10} ${topY - 5} ${cx + rx - 5} ${cy}
-                 Q${cx + rx - 10} ${cy - 45} ${cx} ${topY + 20}
-                 Q${cx - rx + 10} ${cy - 45} ${cx - rx + 5} ${cy} Z"
-              fill="${color}" />
-      `;
     default:
       return renderHair('bob', color);
   }
@@ -1041,12 +1003,7 @@ function renderFaceThumb(facePatch, skinColor = '#E8B591') {
    ================================================================ */
 
 /**
- * localStorage CRUD, import, and for Mii records.
- *
- * @module storage
- */
-
-
+ * localStorage CRUD, 
 
 const MII_PREFIX = 'miis:';
 const MAX_MIIS = 50;
@@ -1547,33 +1504,21 @@ function handleRandomizeFace() {
 }
 
 function handleSave() {
-  try {
-    const s = getState();
-    if (!s.name.trim()) {
-      showToast('Your Mii needs a name!', 'error');
-      $name.focus();
-      return;
-    }
-    const sanitized = sanitizeName(s.name);
-    state.name = sanitized;
-    state.updatedAt = new Date().toISOString();
-
-    // Workaround for usability: If they are editing the default EXAMPLE_MII template,
-    // saving it should create a NEW Mii instead of overwriting the example template's ID forever.
-    if (state.id === EXAMPLE_MII.id) {
-      state.id = generateUUID();
-    }
-
-    const result = saveMii(state);
-    if (result.ok) {
-      showToast(`${sanitized} saved! 💾`, 'success');
-      refreshGallery();
-    } else {
-      showToast(result.errors.join('\n'), 'error');
-    }
-  } catch (err) {
-    showToast(`Unexpected error: ${err.message}`, 'error');
-    console.error("Save error:", err);
+  const s = getState();
+  if (!s.name.trim()) {
+    showToast('Your Mii needs a name!', 'error');
+    $name.focus();
+    return;
+  }
+  const sanitized = sanitizeName(s.name);
+  state.name = sanitized;
+  state.updatedAt = new Date().toISOString();
+  const result = saveMii(state);
+  if (result.ok) {
+    showToast(`${sanitized} saved! 💾`, 'success');
+    refreshGallery();
+  } else {
+    showToast(result.errors.join('\n'), 'error');
   }
 }
 
@@ -1782,3 +1727,5 @@ init();
 
 
 })();
+
+module.exports = { saveMii, EXAMPLE_MII, getState, handleSave };

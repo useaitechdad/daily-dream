@@ -1,39 +1,30 @@
 /**
- * The canonical Example Mii, exported as a JS module so it works on file://.
- * This is the same data as example.mii.json — keep them in sync.
- *
+ * Example Mii — the default character loaded on first run.
  * @module exampleMii
  */
 
 export const EXAMPLE_MII = {
   id: '00000000-0000-4000-8000-000000000001',
-  schemaVersion: 1,
+  schemaVersion: 2,
   createdAt: '2026-04-19T00:00:00.000Z',
   updatedAt: '2026-04-19T00:00:00.000Z',
   name: 'Example',
-  personality: {
-    introvertExtrovert: 70,
-    calmIntense: 40,
-    seriousSilly: 75,
-  },
+  personality: { introvertExtrovert: 70, calmIntense: 40, seriousSilly: 75 },
   appearance: {
     skinTone: 'light',
     bodyShape: 'regular',
-    outfit: {
-      style: 'hoodie',
-      primaryColor: '#7F77DD',
-      secondaryColor: '#534AB7',
-    },
+    outfit: { style: 'hoodie', primaryColor: '#7F77DD', secondaryColor: '#534AB7' },
     accessory: 'glasses',
+    face: {
+      hairStyle: 'bob',
+      hairColor: '#3B2416',
+      eyeShape: 'round',
+      eyeColor: '#2D1810',
+      mouthShape: 'smile',
+      eyebrows: 'arched',
+      blush: true,
+      freckles: false,
+    },
   },
-  face: {
-    prompt: '',
-    vibe: '',
-    imageDataUrl: null,
-    generatedAt: null,
-    modelId: 'gemini-3.1-flash-image-preview',
-  },
-  meta: {
-    notes: '',
-  },
+  meta: { notes: '' },
 };
