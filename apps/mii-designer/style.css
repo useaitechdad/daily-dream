@@ -507,18 +507,33 @@ body {
 }
 
 .thumb-btn {
-  width: 52px;
-  height: 52px;
+  width: 56px;
+  height: 68px;
   border-radius: var(--radius-md);
   border: 2px solid var(--border);
   background: var(--bg-card);
   cursor: pointer;
-  padding: 2px;
+  padding: 2px 2px 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   transition: border-color 0.15s, background 0.15s, transform 0.1s;
   flex-shrink: 0;
+  position: relative;
+}
+
+.thumb-btn::after {
+  content: attr(title);
+  font-size: 8px;
+  line-height: 1;
+  color: var(--text-muted);
+  text-transform: capitalize;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 52px;
+  margin-top: 1px;
 }
 
 .thumb-btn:hover {
@@ -531,6 +546,11 @@ body {
   border-color: var(--accent);
   background: var(--accent-subtle);
   box-shadow: 0 0 0 2px var(--accent);
+}
+
+.thumb-btn.active::after {
+  color: var(--accent);
+  font-weight: var(--font-weight-bold);
 }
 
 /* Blush / Freckles toggles */

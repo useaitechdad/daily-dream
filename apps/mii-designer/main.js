@@ -10,7 +10,8 @@
 
 import {
   SKIN_TONES, TWO_COLOR_STYLES,
-  HAIR_STYLES, EYE_SHAPES, MOUTH_SHAPES,
+  HAIR_STYLES, EYE_SHAPES, MOUTH_SHAPES, FACE_SHAPES,
+  NOSE_STYLES, EYEBROW_STYLES, EXPRESSION_EFFECTS,
   DEFAULT_FACE, createBlankMii, sanitizeName, generateUUID,
 } from '../../shared/schema/miiSchema.js';
 import { EXAMPLE_MII } from '../../shared/schema/exampleMii.js';
@@ -91,6 +92,12 @@ const $mouthShapeRow  = document.getElementById('mouth-shape-row');
 const $eyebrowStyle   = document.getElementById('eyebrow-style');
 const $faceBlush      = document.getElementById('face-blush');
 const $faceFreckles   = document.getElementById('face-freckles');
+const $faceShapeRow   = document.getElementById('face-shape-row');
+const $noseStyle      = document.getElementById('nose-style');
+const $expressionStyle = document.getElementById('expression-style');
+const $faceEyelashes  = document.getElementById('face-eyelashes');
+const $faceBeautyMark = document.getElementById('face-beauty-mark');
+const $faceScar       = document.getElementById('face-scar');
 const $previewContainer = document.getElementById('mii-preview-container');
 const $previewName    = document.getElementById('preview-name');
 const $btnSave        = document.getElementById('btn-save');
@@ -146,6 +153,9 @@ function buildThumbRow(container, values, featureKey, patchBuilder, dataAttr) {
 }
 
 function buildFaceThumbRows() {
+  buildThumbRow($faceShapeRow, FACE_SHAPES, 'faceShape',
+    (v) => ({ faceShape: v }),
+    'faceShape');
   buildThumbRow($hairStyleRow, HAIR_STYLES, 'hairStyle',
     (v) => ({ hairStyle: v, hairColor: state.appearance.face.hairColor || DEFAULT_FACE.hairColor }),
     'hairStyle');
@@ -249,11 +259,32 @@ function wireControls() {
   $eyebrowStyle.addEventListener('change', () =>
     setState({ appearance: { face: { eyebrows: $eyebrowStyle.value } } }));
 
-  // Face — blush / freckles
+  // Face — blush / freckles / eyelashes / beautyMark / scar
   $faceBlush.addEventListener('change', () =>
     setState({ appearance: { face: { blush: $faceBlush.checked } } }));
   $faceFreckles.addEventListener('change', () =>
     setState({ appearance: { face: { freckles: $faceFreckles.checked } } }));
+  $faceEyelashes.addEventListener('change', () =>
+    setState({ appearance: { face: { eyelashes: $faceEyelashes.checked } } }));
+  $faceBeautyMark.addEventListener('change', () =>
+    setState({ appearance: { face: { beautyMark: $faceBeautyMark.checked } } }));
+  $faceScar.addEventListener('change', () =>
+    setState({ appearance: { face: { scar: $faceScar.checked } } }));
+
+  // Face shape thumbnails
+  $faceShapeRow.addEventListener('click', (e) => {
+    const btn = e.target.closest('.thumb-btn');
+    if (!btn) return;
+    setState({ appearance: { face: { faceShape: btn.dataset.faceShape } } });
+  });
+
+  // Nose
+  $noseStyle.addEventListener('change', () =>
+    setState({ appearance: { face: { nose: $noseStyle.value } } }));
+
+  // Expression
+  $expressionStyle.addEventListener('change', () =>
+    setState({ appearance: { face: { expression: $expressionStyle.value } } }));
 
   // Randomize face
   $btnRandomizeFace.addEventListener('click', handleRandomizeFace);
@@ -279,14 +310,20 @@ function handleRandomizeFace() {
   setState({
     appearance: {
       face: {
+        faceShape:  pick(FACE_SHAPES),
         hairStyle:  pick(HAIR_STYLES),
         hairColor:  randomHex(),
         eyeShape:   pick(EYE_SHAPES),
         eyeColor:   randomHex(),
         mouthShape: pick(MOUTH_SHAPES),
-        eyebrows:   pick(['none', 'arched', 'flat', 'angry']),
+        eyebrows:   pick(EYEBROW_STYLES),
+        nose:       pick(NOSE_STYLES),
+        expression: pick(EXPRESSION_EFFECTS),
+        eyelashes:  Math.random() > 0.6,
         blush:      Math.random() > 0.5,
         freckles:   Math.random() > 0.7,
+        beautyMark: Math.random() > 0.8,
+        scar:       Math.random() > 0.85,
       },
     },
   });
@@ -399,6 +436,11 @@ function updateControlHighlights(s) {
 
   // Face thumb rows
   const face = s.appearance.face || {};
+  for (const btn of $faceShapeRow.querySelectorAll('.thumb-btn')) {
+    const active = btn.dataset.faceShape === face.faceShape;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-checked', active ? 'true' : 'false');
+  }
   for (const btn of $hairStyleRow.querySelectorAll('.thumb-btn')) {
     const active = btn.dataset.hairStyle === face.hairStyle;
     btn.classList.toggle('active', active);
@@ -495,8 +537,13 @@ function syncControlsToState() {
   if (face.hairColor) $hairColor.value = face.hairColor;
   if (face.eyeColor)  $eyeColor.value  = face.eyeColor;
   $eyebrowStyle.value  = face.eyebrows  || 'arched';
+  $noseStyle.value     = face.nose      || 'none';
+  $expressionStyle.value = face.expression || 'none';
   $faceBlush.checked   = !!face.blush;
   $faceFreckles.checked = !!face.freckles;
+  $faceEyelashes.checked = !!face.eyelashes;
+  $faceBeautyMark.checked = !!face.beautyMark;
+  $faceScar.checked    = !!face.scar;
 
   // Rebuild thumbnails so they reflect current hair/eye colors
   buildFaceThumbRows();

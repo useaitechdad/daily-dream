@@ -89,6 +89,10 @@
             <option value="stripes">Striped Top</option>
             <option value="jacket">Jacket</option>
             <option value="overalls">Overalls</option>
+            <option value="suit">Suit</option>
+            <option value="cape">Cape</option>
+            <option value="tanktop">Tank Top</option>
+            <option value="kimono">Kimono</option>
           </select>
 
           <label class="control-label" for="outfit-primary-color">Primary Color</label>
@@ -111,6 +115,12 @@
             <button type="button" class="accessory-btn" data-accessory="hat" aria-label="Hat">🎩</button>
             <button type="button" class="accessory-btn" data-accessory="bow" aria-label="Bow">🎀</button>
             <button type="button" class="accessory-btn" data-accessory="headphones" aria-label="Headphones">🎧</button>
+            <button type="button" class="accessory-btn" data-accessory="sunglasses" aria-label="Sunglasses">🕶️</button>
+            <button type="button" class="accessory-btn" data-accessory="crown" aria-label="Crown">👑</button>
+            <button type="button" class="accessory-btn" data-accessory="bandana" aria-label="Bandana">🏴‍☠️</button>
+            <button type="button" class="accessory-btn" data-accessory="earrings" aria-label="Earrings">💎</button>
+            <button type="button" class="accessory-btn" data-accessory="mask" aria-label="Mask">😷</button>
+            <button type="button" class="accessory-btn" data-accessory="horns" aria-label="Horns">😈</button>
           </div>
         </div>
       </details>
@@ -121,6 +131,11 @@
         <div class="section-body">
 
           <button type="button" id="btn-randomize-face" class="btn btn--primary btn--large btn--full">🎲 Randomize Face</button>
+
+          <label class="control-label">Face Shape</label>
+          <div class="thumb-row" id="face-shape-row" role="radiogroup" aria-label="Face shape">
+            <!-- JS-generated SVG thumbnail buttons -->
+          </div>
 
           <label class="control-label">Hair Style</label>
           <div class="thumb-row" id="hair-style-row" role="radiogroup" aria-label="Hair style">
@@ -149,6 +164,28 @@
             <option value="arched">Arched</option>
             <option value="flat">Flat</option>
             <option value="angry">Angry</option>
+            <option value="worried">Worried</option>
+            <option value="thick">Thick</option>
+            <option value="thin">Thin</option>
+          </select>
+
+          <label class="control-label" for="nose-style">Nose</label>
+          <select id="nose-style" class="control-select">
+            <option value="none">None</option>
+            <option value="dot">Dot</option>
+            <option value="triangle">Triangle</option>
+            <option value="round">Round</option>
+            <option value="button">Button</option>
+          </select>
+
+          <label class="control-label" for="expression-style">Expression Effect</label>
+          <select id="expression-style" class="control-select">
+            <option value="none">None</option>
+            <option value="sweatDrop">💧 Sweat Drop</option>
+            <option value="angerVein">💢 Anger Vein</option>
+            <option value="sparkle">✨ Sparkle</option>
+            <option value="blushLines">😊 Blush Lines</option>
+            <option value="tears">😢 Tears</option>
           </select>
 
           <div class="toggle-row">
@@ -159,6 +196,21 @@
             <label class="toggle-label" for="face-freckles">
               <input type="checkbox" id="face-freckles" />
               Freckles
+            </label>
+          </div>
+
+          <div class="toggle-row">
+            <label class="toggle-label" for="face-eyelashes">
+              <input type="checkbox" id="face-eyelashes" />
+              Eyelashes
+            </label>
+            <label class="toggle-label" for="face-beauty-mark">
+              <input type="checkbox" id="face-beauty-mark" />
+              Beauty Mark
+            </label>
+            <label class="toggle-label" for="face-scar">
+              <input type="checkbox" id="face-scar" />
+              Scar
             </label>
           </div>
 

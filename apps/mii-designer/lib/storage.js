@@ -4,7 +4,18 @@
  * @module storage
  */
 
-import { validateMii, sanitizeName, TWO_COLOR_STYLES, migrateV1ToV2 } from '../../../shared/schema/miiSchema.js';
+import { validateMii, sanitizeName, TWO_COLOR_STYLES, migrateV1ToV2, migrateV2ToV3, SCHEMA_VERSION } from '../../../shared/schema/miiSchema.js';
+
+/**
+ * Run all necessary migrations on a Mii record to bring it to the current schema version.
+ * @param {object} mii
+ * @returns {object}
+ */
+function autoMigrate(mii) {
+  if (mii.schemaVersion === 1) mii = migrateV1ToV2(mii);
+  if (mii.schemaVersion === 2) mii = migrateV2ToV3(mii);
+  return mii;
+}
 
 const MII_PREFIX = 'miis:';
 const MAX_MIIS = 50;
@@ -77,8 +88,8 @@ export function loadMii(id) {
     const raw = localStorage.getItem(`${MII_PREFIX}${id}`);
     if (!raw) return null;
     let mii = JSON.parse(raw);
-    if (mii && mii.schemaVersion === 1) {
-      mii = migrateV1ToV2(mii);
+    if (mii && mii.schemaVersion !== SCHEMA_VERSION) {
+      mii = autoMigrate(mii);
       localStorage.setItem(`${MII_PREFIX}${mii.id}`, JSON.stringify(mii));
     }
     return mii;
@@ -98,8 +109,8 @@ export function listMiis() {
     if (key && key.startsWith(MII_PREFIX)) {
       try {
         let mii = JSON.parse(localStorage.getItem(key));
-        if (mii && mii.schemaVersion === 1) {
-          mii = migrateV1ToV2(mii);
+        if (mii && mii.schemaVersion !== SCHEMA_VERSION) {
+          mii = autoMigrate(mii);
           localStorage.setItem(key, JSON.stringify(mii));
         }
         if (mii) miis.push(mii);
@@ -165,9 +176,9 @@ export function importMiis(jsonString) {
   const records = Array.isArray(parsed) ? parsed : [parsed];
 
   for (let record of records) {
-    // Auto-migrate v1 records on import
-    if (record && record.schemaVersion === 1) {
-      record = migrateV1ToV2(record);
+    // Auto-migrate old records on import
+    if (record && record.schemaVersion !== SCHEMA_VERSION) {
+      record = autoMigrate(record);
     }
 
     const validation = validateMii(record);

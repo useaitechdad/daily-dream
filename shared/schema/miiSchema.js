@@ -5,35 +5,44 @@
  * @module miiSchema
  */
 
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 export const SKIN_TONES = ['pale', 'light', 'tan', 'olive', 'brown', 'deep'];
 export const BODY_SHAPES = ['narrow', 'regular', 'stocky'];
-export const OUTFIT_STYLES = ['tshirt', 'hoodie', 'dress', 'stripes', 'jacket', 'overalls'];
-export const ACCESSORIES = ['none', 'glasses', 'hat', 'bow', 'headphones'];
+export const OUTFIT_STYLES = ['tshirt', 'hoodie', 'dress', 'stripes', 'jacket', 'overalls', 'suit', 'cape', 'tanktop', 'kimono'];
+export const ACCESSORIES = ['none', 'glasses', 'hat', 'bow', 'headphones', 'sunglasses', 'crown', 'bandana', 'earrings', 'mask', 'horns'];
 
 /** Outfit styles that use a secondary color */
-export const TWO_COLOR_STYLES = ['hoodie', 'stripes', 'jacket', 'overalls'];
+export const TWO_COLOR_STYLES = ['hoodie', 'stripes', 'jacket', 'overalls', 'suit', 'cape', 'kimono'];
 
 /** Face feature enums */
+export const FACE_SHAPES = ['oval', 'round', 'square', 'pointy', 'wide', 'pear'];
 export const HAIR_STYLES = ['bob', 'long', 'pigtails', 'spiky', 'curly', 'buzz', 'ponytail', 'afro', 'parted', 'slicked'];
-export const EYE_SHAPES = ['round', 'almond', 'sleepy', 'wide', 'angry', 'sparkle', 'anime', 'huge'];
-export const MOUTH_SHAPES = ['smile', 'smirk', 'grin', 'pout', 'flat', 'open'];
-export const EYEBROW_STYLES = ['none', 'arched', 'flat', 'angry'];
+export const EYE_SHAPES = ['round', 'almond', 'sleepy', 'wide', 'angry', 'sparkle', 'anime', 'huge', 'dot', 'spiral', 'lashes', 'heart', 'star', 'xEyes', 'money', 'void', 'wink', 'cross'];
+export const MOUTH_SHAPES = ['smile', 'smirk', 'grin', 'pout', 'flat', 'open', 'zigzag', 'tongue', 'teeth', 'cat', 'kiss', 'megaMouth', 'vampire', 'duck', 'drool', 'scream'];
+export const EYEBROW_STYLES = ['none', 'arched', 'flat', 'angry', 'worried', 'thick', 'thin'];
+export const NOSE_STYLES = ['none', 'dot', 'triangle', 'round', 'button'];
+export const EXPRESSION_EFFECTS = ['none', 'sweatDrop', 'angerVein', 'sparkle', 'blushLines', 'tears'];
 
 const HEX_COLOR_RE = /^#[0-9A-F]{6}$/;
 const EMOJI_RE = /[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu;
 
 /** Default face values (Luna's look) */
 export const DEFAULT_FACE = {
+  faceShape: 'oval',
   hairStyle: 'bob',
   hairColor: '#3B2416',
   eyeShape: 'round',
   eyeColor: '#2D1810',
   mouthShape: 'smile',
   eyebrows: 'arched',
+  nose: 'none',
+  eyelashes: false,
+  expression: 'none',
   blush: true,
   freckles: false,
+  beautyMark: false,
+  scar: false,
 };
 
 /**
@@ -61,7 +70,7 @@ export function sanitizeName(raw) {
  */
 
 /**
- * Validate a Mii object against the v2 schema.
+ * Validate a Mii object against the v3 schema.
  * @param {object} obj
  * @returns {ValidationResult}
  */
@@ -149,6 +158,9 @@ export function validateMii(obj) {
       errors.push('appearance.face must be an object');
     } else {
       const face = obj.appearance.face;
+      if (!FACE_SHAPES.includes(face.faceShape)) {
+        errors.push(`appearance.face.faceShape must be one of: ${FACE_SHAPES.join(', ')}`);
+      }
       if (!HAIR_STYLES.includes(face.hairStyle)) {
         errors.push(`appearance.face.hairStyle must be one of: ${HAIR_STYLES.join(', ')}`);
       }
@@ -167,11 +179,26 @@ export function validateMii(obj) {
       if (!EYEBROW_STYLES.includes(face.eyebrows)) {
         errors.push(`appearance.face.eyebrows must be one of: ${EYEBROW_STYLES.join(', ')}`);
       }
+      if (!NOSE_STYLES.includes(face.nose)) {
+        errors.push(`appearance.face.nose must be one of: ${NOSE_STYLES.join(', ')}`);
+      }
+      if (!EXPRESSION_EFFECTS.includes(face.expression)) {
+        errors.push(`appearance.face.expression must be one of: ${EXPRESSION_EFFECTS.join(', ')}`);
+      }
+      if (typeof face.eyelashes !== 'boolean') {
+        errors.push('appearance.face.eyelashes must be a boolean');
+      }
       if (typeof face.blush !== 'boolean') {
         errors.push('appearance.face.blush must be a boolean');
       }
       if (typeof face.freckles !== 'boolean') {
         errors.push('appearance.face.freckles must be a boolean');
+      }
+      if (typeof face.beautyMark !== 'boolean') {
+        errors.push('appearance.face.beautyMark must be a boolean');
+      }
+      if (typeof face.scar !== 'boolean') {
+        errors.push('appearance.face.scar must be a boolean');
       }
     }
   }
@@ -203,11 +230,49 @@ export function migrateV1ToV2(v1Mii) {
   // Drop the top-level face object
   delete migrated.face;
 
-  // Add appearance.face with defaults
-  migrated.appearance.face = { ...DEFAULT_FACE };
+  // Add appearance.face with v2 defaults (no v3 fields)
+  migrated.appearance.face = {
+    hairStyle: 'bob',
+    hairColor: '#3B2416',
+    eyeShape: 'round',
+    eyeColor: '#2D1810',
+    mouthShape: 'smile',
+    eyebrows: 'arched',
+    blush: true,
+    freckles: false,
+  };
 
   // Bump schema version
-  migrated.schemaVersion = SCHEMA_VERSION;
+  migrated.schemaVersion = 2;
+
+  return migrated;
+}
+
+/**
+ * Migrate a v2 Mii record to v3.
+ * Adds new face fields (faceShape, nose, eyelashes, expression, beautyMark, scar)
+ * with sensible defaults. Pure function — does not mutate the input.
+ *
+ * @param {object} v2Mii - A schemaVersion 2 record
+ * @returns {object} A valid schemaVersion 3 record
+ */
+export function migrateV2ToV3(v2Mii) {
+  const migrated = JSON.parse(JSON.stringify(v2Mii));
+
+  // Add new face fields with defaults, preserving existing face data
+  const existingFace = migrated.appearance.face || {};
+  migrated.appearance.face = {
+    faceShape: 'oval',
+    ...existingFace,
+    nose: existingFace.nose || 'none',
+    eyelashes: existingFace.eyelashes ?? false,
+    expression: existingFace.expression || 'none',
+    beautyMark: existingFace.beautyMark ?? false,
+    scar: existingFace.scar ?? false,
+  };
+
+  // Bump schema version
+  migrated.schemaVersion = 3;
 
   return migrated;
 }
