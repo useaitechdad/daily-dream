@@ -4,7 +4,7 @@
  * @module storage
  */
 
-import { validateMii, sanitizeName, TWO_COLOR_STYLES, migrateV1ToV2, migrateV2ToV3, SCHEMA_VERSION } from '../../../shared/schema/miiSchema.js';
+import { validateMii, sanitizeName, TWO_COLOR_STYLES, migrateV1ToV2, migrateV2ToV3, migrateV3ToV4, SCHEMA_VERSION } from '../../../shared/schema/miiSchema.js';
 
 /**
  * Run all necessary migrations on a Mii record to bring it to the current schema version.
@@ -14,6 +14,7 @@ import { validateMii, sanitizeName, TWO_COLOR_STYLES, migrateV1ToV2, migrateV2To
 function autoMigrate(mii) {
   if (mii.schemaVersion === 1) mii = migrateV1ToV2(mii);
   if (mii.schemaVersion === 2) mii = migrateV2ToV3(mii);
+  if (mii.schemaVersion === 3) mii = migrateV3ToV4(mii);
   return mii;
 }
 

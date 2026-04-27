@@ -19,6 +19,7 @@ import { SKIN_TONE_COLORS } from './lib/palette.js';
 import { renderMii, renderMiiThumbnail, renderFaceThumb } from './lib/miiRenderer.js';
 import { saveMii, loadMii, listMiis, deleteMii, exportAll, exportOne, importMiis, downloadJson } from './lib/storage.js';
 import { showToast } from './lib/toast.js';
+import { initDialogue, stopDialogue } from './lib/miiAnimator.js';
 
 /* ================================================================
    State Management
@@ -75,7 +76,8 @@ const $name           = document.getElementById('mii-name');
 const $sliderIE       = document.getElementById('slider-introvert-extrovert');
 const $sliderCI       = document.getElementById('slider-calm-intense');
 const $sliderSS       = document.getElementById('slider-serious-silly');
-const $notes          = document.getElementById('mii-notes');
+const $notes          = document.getElementById('meta-notes');
+const $metaVoice      = document.getElementById('meta-voice');
 const $skinSwatches   = document.getElementById('skin-tone-swatches');
 const $bodyShapeRow   = document.getElementById('body-shape-row');
 const $outfitStyle    = document.getElementById('outfit-style');
@@ -108,6 +110,20 @@ const $btnImport      = document.getElementById('btn-import');
 const $galleryGrid    = document.getElementById('gallery-grid');
 const $galleryEmpty   = document.getElementById('gallery-empty');
 
+// Dialogue elements
+const $btnOpenDialogue = document.getElementById('btn-open-dialogue');
+const $btnCloseDialogue = document.getElementById('btn-close-dialogue');
+const $dialogueOverlay = document.getElementById('dialogue-overlay');
+const $dialogueSetup = document.getElementById('dialogue-setup');
+const $dialogueTheater = document.getElementById('dialogue-theater');
+const $dialogueMii1 = document.getElementById('dialogue-mii-1');
+const $dialogueMii2 = document.getElementById('dialogue-mii-2');
+const $dialogueTopic = document.getElementById('dialogue-topic');
+const $btnStartDialogue = document.getElementById('btn-start-dialogue');
+const $btnStopDialogue = document.getElementById('btn-stop-dialogue');
+const $dialogueStatus = document.getElementById('dialogue-status');
+const $theaterBubble1 = document.getElementById('theater-bubble-1');
+const $theaterBubble2 = document.getElementById('theater-bubble-2');
 /* ================================================================
    Build dynamic controls
    ================================================================ */
@@ -183,8 +199,9 @@ function wireControls() {
   $sliderSS.addEventListener('input', () =>
     setState({ personality: { seriousSilly: parseInt($sliderSS.value, 10) } }));
 
-  // Notes
+  // Meta
   $notes.addEventListener('input', () => setState({ meta: { notes: $notes.value } }));
+  $metaVoice.addEventListener('change', () => setState({ meta: { voice: $metaVoice.value } }));
 
   // Skin tone swatches
   $skinSwatches.addEventListener('click', (e) => {
@@ -295,6 +312,12 @@ function wireControls() {
   $btnNew.addEventListener('click', handleNew);
   $btnExportAll.addEventListener('click', handleExportAll);
   $btnImport.addEventListener('change', handleImport);
+
+  // Dialogue Mode
+  $btnOpenDialogue.addEventListener('click', handleOpenDialogue);
+  $btnCloseDialogue.addEventListener('click', handleCloseDialogue);
+  $btnStartDialogue.addEventListener('click', handleStartDialogue);
+  $btnStopDialogue.addEventListener('click', handleStopDialogue);
 }
 
 /* ================================================================
@@ -405,6 +428,97 @@ function handleImport(e) {
     e.target.value = '';
   };
   reader.readAsText(file);
+}
+
+/* ================================================================
+   Dialogue Handlers
+   ================================================================ */
+
+function handleOpenDialogue() {
+  const miis = listMiis();
+  if (miis.length < 2) {
+    showToast('You need at least 2 saved Miis to start a dialogue!', 'error');
+    return;
+  }
+  
+  $dialogueMii1.innerHTML = '';
+  $dialogueMii2.innerHTML = '';
+  miis.forEach(m => {
+    const opt1 = document.createElement('option');
+    opt1.value = m.id;
+    opt1.textContent = m.name;
+    $dialogueMii1.appendChild(opt1);
+
+    const opt2 = document.createElement('option');
+    opt2.value = m.id;
+    opt2.textContent = m.name;
+    $dialogueMii2.appendChild(opt2);
+  });
+  
+  if (miis.length > 1) {
+    $dialogueMii2.value = miis[1].id;
+  }
+
+  $dialogueOverlay.classList.remove('hidden');
+}
+
+function handleCloseDialogue() {
+  $dialogueOverlay.classList.add('hidden');
+  handleStopDialogue();
+}
+
+function handleStartDialogue() {
+  const miis = listMiis();
+  const m1 = miis.find(m => String(m.id) === $dialogueMii1.value);
+  const m2 = miis.find(m => String(m.id) === $dialogueMii2.value);
+  
+  if (m1.id === m2.id) {
+    showToast('Please select two DIFFERENT Miis.', 'error');
+    return;
+  }
+
+  $dialogueSetup.classList.add('hidden');
+  $dialogueTheater.classList.remove('hidden');
+  
+  $dialogueMii1.disabled = true;
+  $dialogueMii2.disabled = true;
+  $dialogueTopic.disabled = true;
+  $btnStartDialogue.disabled = true;
+
+  $theaterBubble1.classList.add('hidden');
+  $theaterBubble2.classList.add('hidden');
+  $theaterBubble1.textContent = '';
+  $theaterBubble2.textContent = '';
+
+  initDialogue(
+    m1, m2, $dialogueTopic.value, 
+    (status) => {
+      $dialogueStatus.textContent = status;
+    },
+    (agent, text, isPartial) => {
+      const bubble = agent === 'mii1' ? $theaterBubble1 : $theaterBubble2;
+      bubble.textContent = text;
+      bubble.classList.remove('hidden');
+      if (!isPartial) {
+        setTimeout(() => {
+          if (bubble.textContent === text) {
+            bubble.classList.add('hidden');
+          }
+        }, 3000);
+      }
+    }
+  );
+}
+
+function handleStopDialogue() {
+  stopDialogue();
+  $dialogueSetup.classList.remove('hidden');
+  $dialogueTheater.classList.add('hidden');
+  $dialogueMii1.disabled = false;
+  $dialogueMii2.disabled = false;
+  $dialogueTopic.disabled = false;
+  $btnStartDialogue.disabled = false;
+  $dialogueStatus.textContent = '';
 }
 
 /* ================================================================
@@ -525,7 +639,8 @@ function syncControlsToState() {
   $sliderIE.value = s.personality.introvertExtrovert;
   $sliderCI.value = s.personality.calmIntense;
   $sliderSS.value = s.personality.seriousSilly;
-  $notes.value   = s.meta.notes;
+  $notes.value   = s.meta.notes || '';
+  if (s.meta.voice) $metaVoice.value = s.meta.voice;
   $outfitStyle.value   = s.appearance.outfit.style;
   $primaryColor.value  = s.appearance.outfit.primaryColor;
   if (s.appearance.outfit.secondaryColor) {

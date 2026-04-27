@@ -25,7 +25,7 @@
 
       <!-- Identity -->
       <details class="control-section" open>
-        <summary class="section-title">👤 Identity <span style="font-size: 0.7em; font-weight: normal; color: var(--text-muted);">(for phase 2)</span></summary>
+        <summary class="section-title">👤 Identity</summary>
         <div class="section-body">
           <label class="control-label" for="mii-name">Name</label>
           <input type="text" id="mii-name" class="control-input" maxlength="20" placeholder="Give your Mii a name…" autocomplete="off" />
@@ -48,10 +48,7 @@
             Silly
           </label>
 
-          <details class="notes-section">
-            <summary class="notes-toggle">📝 Notes</summary>
-            <textarea id="mii-notes" class="control-textarea" maxlength="500" rows="3" placeholder="Personal notes about this Mii…"></textarea>
-          </details>
+
         </div>
       </details>
 
@@ -217,6 +214,23 @@
         </div>
       </details>
 
+      <!-- Personality & Voice -->
+      <details class="control-section" open>
+        <summary class="section-title">🎭 Personality & Voice</summary>
+        <div class="section-body">
+          <label class="control-label" for="meta-voice">Voice</label>
+          <select id="meta-voice" class="control-select">
+            <option value="Aoede">Aoede</option>
+            <option value="Puck">Puck</option>
+            <option value="Charon">Charon</option>
+            <option value="Kore">Kore</option>
+            <option value="Fenrir">Fenrir</option>
+          </select>
+          <label class="control-label" for="meta-notes">Additional Quirks / Context</label>
+          <textarea id="meta-notes" class="control-textarea" rows="3" placeholder="e.g. You are a pirate who loves cheese..."></textarea>
+        </div>
+      </details>
+
     </aside>
 
     <!-- ============ PREVIEW PANEL ============ -->
@@ -246,8 +260,53 @@
         <div id="gallery-grid" class="gallery-grid">
           <p class="gallery-empty" id="gallery-empty">No saved Miis yet. Create one and hit Save!</p>
         </div>
+        <div style="margin-top: 16px; text-align: center;">
+          <button type="button" id="btn-open-dialogue" class="btn btn--primary btn--large">💬 Open Dialogue Mode</button>
+        </div>
       </div>
     </section>
+
+    <!-- ============ DIALOGUE STAGE (HIDDEN) ============ -->
+    <div id="dialogue-overlay" class="dialogue-overlay hidden">
+      <div class="dialogue-modal">
+        <div class="dialogue-header">
+          <h2>💬 Mii Dialogue Stage</h2>
+          <button type="button" id="btn-close-dialogue" class="btn-close">×</button>
+        </div>
+        
+        <div class="dialogue-setup" id="dialogue-setup">
+          <div class="dialogue-selectors">
+            <div class="dialogue-selector">
+              <label>Mii 1</label>
+              <select id="dialogue-mii-1" class="control-select"></select>
+            </div>
+            <div class="dialogue-selector">
+              <label>Mii 2</label>
+              <select id="dialogue-mii-2" class="control-select"></select>
+            </div>
+          </div>
+          <label class="control-label">Topic / Context</label>
+          <input type="text" id="dialogue-topic" class="control-input" value="Introduce yourselves!" />
+          <button type="button" id="btn-start-dialogue" class="btn btn--primary btn--large" style="margin-top: 16px; width: 100%;">🎙️ Start Conversation</button>
+        </div>
+
+        <p id="dialogue-status" style="text-align: center; font-size: 14px; margin-top: 8px; margin-bottom: 16px; color: var(--text-muted);"></p>
+
+        <div class="dialogue-theater hidden" id="dialogue-theater">
+          <div class="theater-stage">
+            <div class="theater-character">
+              <div id="theater-mii-1" class="theater-mii"></div>
+              <div id="theater-bubble-1" class="speech-bubble hidden"></div>
+            </div>
+            <div class="theater-character">
+              <div id="theater-mii-2" class="theater-mii"></div>
+              <div id="theater-bubble-2" class="speech-bubble hidden"></div>
+            </div>
+          </div>
+          <button type="button" id="btn-stop-dialogue" class="btn btn--secondary btn--full" style="margin-top: 16px;">🛑 Stop Conversation</button>
+        </div>
+      </div>
+    </div>
   </main>
 
   <!--

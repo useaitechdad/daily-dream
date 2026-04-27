@@ -5,7 +5,7 @@
  * @module miiSchema
  */
 
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 export const SKIN_TONES = ['pale', 'light', 'tan', 'olive', 'brown', 'deep'];
 export const BODY_SHAPES = ['narrow', 'regular', 'stocky'];
@@ -23,6 +23,9 @@ export const MOUTH_SHAPES = ['smile', 'smirk', 'grin', 'pout', 'flat', 'open', '
 export const EYEBROW_STYLES = ['none', 'arched', 'flat', 'angry', 'worried', 'thick', 'thin'];
 export const NOSE_STYLES = ['none', 'dot', 'triangle', 'round', 'button'];
 export const EXPRESSION_EFFECTS = ['none', 'sweatDrop', 'angerVein', 'sparkle', 'blushLines', 'tears'];
+
+/** Voice enums for Gemini Live */
+export const VOICES = ['Aoede', 'Puck', 'Charon', 'Kore', 'Fenrir'];
 
 const HEX_COLOR_RE = /^#[0-9A-F]{6}$/;
 const EMOJI_RE = /[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu;
@@ -212,6 +215,9 @@ export function validateMii(obj) {
     } else if (obj.meta.notes.length > 500) {
       errors.push('meta.notes must be 500 characters or fewer');
     }
+    if (!VOICES.includes(obj.meta.voice)) {
+      errors.push(`meta.voice must be one of: ${VOICES.join(', ')}`);
+    }
   }
 
   return { valid: errors.length === 0, errors };
@@ -278,6 +284,30 @@ export function migrateV2ToV3(v2Mii) {
 }
 
 /**
+ * Migrate a v3 Mii record to v4.
+ * Adds new meta fields (voice) with sensible defaults.
+ * Pure function — does not mutate the input.
+ *
+ * @param {object} v3Mii - A schemaVersion 3 record
+ * @returns {object} A valid schemaVersion 4 record
+ */
+export function migrateV3ToV4(v3Mii) {
+  const migrated = JSON.parse(JSON.stringify(v3Mii));
+
+  // Add voice default
+  const existingMeta = migrated.meta || {};
+  migrated.meta = {
+    ...existingMeta,
+    voice: existingMeta.voice || VOICES[Math.floor(Math.random() * VOICES.length)],
+  };
+
+  // Bump schema version
+  migrated.schemaVersion = 4;
+
+  return migrated;
+}
+
+/**
  * Create a blank Mii with sensible defaults. Caller must set a name before saving.
  * @returns {object}
  */
@@ -318,6 +348,7 @@ export function createBlankMii() {
     },
     meta: {
       notes: '',
+      voice: VOICES[Math.floor(Math.random() * VOICES.length)],
     },
   };
 }

@@ -901,7 +901,7 @@ function renderHair(style, color) {
       /* Cap + tail at the back (rendered behind, simulated at right for flat 2D) */
       const tailX = cx + rx + 6;
       return `
-        <path d="M${tailX - 8}" y="${topY + 20}
+        <path d="M${tailX - 8} ${topY + 20}
                  Q${tailX + 20} ${cy + 40} ${tailX - 4} ${cy + 80}
                  Q${tailX - 14} ${cy + 80} ${tailX - 22} ${cy + 40}
                  Q${tailX - 26} ${topY + 30} ${tailX - 8} ${topY + 20} Z"

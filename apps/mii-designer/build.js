@@ -18,6 +18,7 @@ const sources = [
   'apps/mii-designer/lib/toast.js',
   'apps/mii-designer/lib/miiRenderer.js',
   'apps/mii-designer/lib/storage.js',
+  'apps/mii-designer/lib/miiAnimator.js',
   'apps/mii-designer/main.js'
 ];
 

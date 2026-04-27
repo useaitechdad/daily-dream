@@ -5,7 +5,7 @@
 
 export const EXAMPLE_MII = {
   id: '00000000-0000-4000-8000-000000000001',
-  schemaVersion: 3,
+  schemaVersion: 4,
   createdAt: '2026-04-19T00:00:00.000Z',
   updatedAt: '2026-04-19T00:00:00.000Z',
   name: 'Example',
@@ -32,5 +32,8 @@ export const EXAMPLE_MII = {
       scar: false,
     },
   },
-  meta: { notes: '' },
+  meta: {
+    notes: '',
+    voice: 'Aoede',
+  },
 };

@@ -8,6 +8,7 @@
  *  apps/mii-designer/lib/toast.js
  *  apps/mii-designer/lib/miiRenderer.js
  *  apps/mii-designer/lib/storage.js
+ *  apps/mii-designer/lib/miiAnimator.js
  *  apps/mii-designer/main.js
  *
  * This file is an IIFE so it works when opened via file:// (double-click).
@@ -29,7 +30,7 @@
  * @module miiSchema
  */
 
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 
 const SKIN_TONES = ['pale', 'light', 'tan', 'olive', 'brown', 'deep'];
 const BODY_SHAPES = ['narrow', 'regular', 'stocky'];
@@ -47,6 +48,9 @@ const MOUTH_SHAPES = ['smile', 'smirk', 'grin', 'pout', 'flat', 'open', 'zigzag'
 const EYEBROW_STYLES = ['none', 'arched', 'flat', 'angry', 'worried', 'thick', 'thin'];
 const NOSE_STYLES = ['none', 'dot', 'triangle', 'round', 'button'];
 const EXPRESSION_EFFECTS = ['none', 'sweatDrop', 'angerVein', 'sparkle', 'blushLines', 'tears'];
+
+/** Voice enums for Gemini Live */
+const VOICES = ['Aoede', 'Puck', 'Charon', 'Kore', 'Fenrir'];
 
 const HEX_COLOR_RE = /^#[0-9A-F]{6}$/;
 const EMOJI_RE = /[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu;
@@ -236,6 +240,9 @@ function validateMii(obj) {
     } else if (obj.meta.notes.length > 500) {
       errors.push('meta.notes must be 500 characters or fewer');
     }
+    if (!VOICES.includes(obj.meta.voice)) {
+      errors.push(`meta.voice must be one of: ${VOICES.join(', ')}`);
+    }
   }
 
   return { valid: errors.length === 0, errors };
@@ -302,6 +309,30 @@ function migrateV2ToV3(v2Mii) {
 }
 
 /**
+ * Migrate a v3 Mii record to v4.
+ * Adds new meta fields (voice) with sensible defaults.
+ * Pure function — does not mutate the input.
+ *
+ * @param {object} v3Mii - A schemaVersion 3 record
+ * @returns {object} A valid schemaVersion 4 record
+ */
+function migrateV3ToV4(v3Mii) {
+  const migrated = JSON.parse(JSON.stringify(v3Mii));
+
+  // Add voice default
+  const existingMeta = migrated.meta || {};
+  migrated.meta = {
+    ...existingMeta,
+    voice: existingMeta.voice || VOICES[Math.floor(Math.random() * VOICES.length)],
+  };
+
+  // Bump schema version
+  migrated.schemaVersion = 4;
+
+  return migrated;
+}
+
+/**
  * Create a blank Mii with sensible defaults. Caller must set a name before saving.
  * @returns {object}
  */
@@ -342,6 +373,7 @@ function createBlankMii() {
     },
     meta: {
       notes: '',
+      voice: VOICES[Math.floor(Math.random() * VOICES.length)],
     },
   };
 }
@@ -358,7 +390,7 @@ function createBlankMii() {
 
 const EXAMPLE_MII = {
   id: '00000000-0000-4000-8000-000000000001',
-  schemaVersion: 3,
+  schemaVersion: 4,
   createdAt: '2026-04-19T00:00:00.000Z',
   updatedAt: '2026-04-19T00:00:00.000Z',
   name: 'Example',
@@ -385,7 +417,10 @@ const EXAMPLE_MII = {
       scar: false,
     },
   },
-  meta: { notes: '' },
+  meta: {
+    notes: '',
+    voice: 'Aoede',
+  },
 };
 
 
@@ -1379,7 +1414,7 @@ function renderHair(style, color) {
       /* Cap + tail at the back (rendered behind, simulated at right for flat 2D) */
       const tailX = cx + rx + 6;
       return `
-        <path d="M${tailX - 8}" y="${topY + 20}
+        <path d="M${tailX - 8} ${topY + 20}
                  Q${tailX + 20} ${cy + 40} ${tailX - 4} ${cy + 80}
                  Q${tailX - 14} ${cy + 80} ${tailX - 22} ${cy + 40}
                  Q${tailX - 26} ${topY + 30} ${tailX - 8} ${topY + 20} Z"
@@ -1537,6 +1572,7 @@ function renderFaceThumb(facePatch, skinColor = '#E8B591') {
 function autoMigrate(mii) {
   if (mii.schemaVersion === 1) mii = migrateV1ToV2(mii);
   if (mii.schemaVersion === 2) mii = migrateV2ToV3(mii);
+  if (mii.schemaVersion === 3) mii = migrateV3ToV4(mii);
   return mii;
 }
 
@@ -1744,6 +1780,256 @@ function downloadJson(filename, jsonString) {
 
 
 /* ================================================================
+   apps/mii-designer/lib/miiAnimator.js
+   ================================================================ */
+
+/**
+ * Handles Web Audio playback and SVG animation for the Mii Dialogue stage.
+ * @module miiAnimator
+ */
+
+
+
+let audioContext;
+let websocket;
+let isDialogueActive = false;
+
+// We'll store the current configuration of the two talking Miis here
+let activeMiis = {
+  mii1: null,
+  mii2: null
+};
+
+// State mapping
+let agentStates = {
+  mii1: 'IDLE',
+  mii2: 'IDLE'
+};
+
+// Queue for incoming PCM buffers
+const audioQueue = {
+  mii1: [],
+  mii2: []
+};
+
+let nextPlayTime = {
+  mii1: 0,
+  mii2: 0
+};
+
+// Visual tracking
+let lastMouthSwap = 0;
+let lastBlink = 0;
+let isBlinking = false;
+
+const MOUTH_SHAPES_SPEAKING = ['open', 'teeth', 'smile', 'megaMouth'];
+
+function initDialogue(mii1, mii2, topic, onStateChange, onTranscript) {
+  activeMiis.mii1 = mii1;
+  activeMiis.mii2 = mii2;
+  
+  if (!audioContext) {
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+  }
+
+  if (audioContext.state === 'suspended') {
+    audioContext.resume();
+  }
+
+  isDialogueActive = true;
+  agentStates.mii1 = 'IDLE';
+  agentStates.mii2 = 'IDLE';
+  nextPlayTime.mii1 = audioContext.currentTime;
+  nextPlayTime.mii2 = audioContext.currentTime;
+  globalAudioQueue = [];
+  isPlayingQueue = false;
+
+  websocket = new WebSocket('ws://localhost:8000/ws');
+
+  websocket.onopen = () => {
+    onStateChange('Connected! Initializing agents...');
+    
+    const traitsToText = (p) => {
+      if (!p) return "";
+      let parts = [];
+      if (p.introvertExtrovert < 33) parts.push("very introverted");
+      else if (p.introvertExtrovert > 66) parts.push("very extroverted");
+      
+      if (p.calmIntense < 33) parts.push("very calm");
+      else if (p.calmIntense > 66) parts.push("very intense");
+      
+      if (p.seriousSilly < 33) parts.push("very serious");
+      else if (p.seriousSilly > 66) parts.push("very silly");
+      
+      return parts.length ? `You are ${parts.join(', and ')}.` : "";
+    };
+
+    const personality1 = `${traitsToText(mii1.personality)} ${mii1.meta?.notes || ''}`.trim();
+    const personality2 = `${traitsToText(mii2.personality)} ${mii2.meta?.notes || ''}`.trim();
+
+    websocket.send(JSON.stringify({
+      action: 'start',
+      mii1: { name: mii1.name, voice: mii1.meta?.voice || 'Aoede', personality: personality1 },
+      mii2: { name: mii2.name, voice: mii2.meta?.voice || 'Kore', personality: personality2 },
+      topic: topic
+    }));
+  };
+
+  let hasError = false;
+
+  websocket.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+
+    if (data.type === 'system') {
+      onStateChange(data.message);
+    } else if (data.type === 'error') {
+      hasError = true;
+      onStateChange('Error: ' + data.message);
+      stopDialogue();
+    } else if (data.type === 'state') {
+      agentStates[data.agent] = data.state;
+      if (data.state === 'SPEAKING') {
+        onStateChange(`${activeMiis[data.agent].name} is speaking...`);
+      }
+    } else if (data.type === 'transcript') {
+      onTranscript(data.agent, data.text);
+    } else if (data.type === 'transcript_partial') {
+      onTranscript(data.agent, data.text, true);
+    } else if (data.type === 'audio') {
+      playAudio(data.agent, data.data);
+    }
+  };
+
+  websocket.onerror = (err) => {
+    console.error('WebSocket Error', err);
+    hasError = true;
+    onStateChange('WebSocket Error. Is the Python server running?');
+  };
+
+  websocket.onclose = () => {
+    if (!hasError) {
+      onStateChange('Disconnected.');
+    }
+    stopDialogue();
+  };
+
+  // Start animation loop
+  requestAnimationFrame(animationLoop);
+}
+
+function stopDialogue() {
+  isDialogueActive = false;
+  if (websocket) {
+    websocket.close();
+    websocket = null;
+  }
+}
+
+// Convert base64 to Float32Array PCM for Web Audio
+function base64ToFloat32(base64) {
+  const binaryString = window.atob(base64);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  // Data is 16-bit little-endian PCM
+  const pcm16 = new Int16Array(bytes.buffer);
+  const pcmFloat = new Float32Array(pcm16.length);
+  for (let i = 0; i < pcm16.length; i++) {
+    pcmFloat[i] = pcm16[i] / 32768.0;
+  }
+  return pcmFloat;
+}
+
+let globalAudioQueue = [];
+let isPlayingQueue = false;
+
+function processAudioQueue() {
+  if (!isDialogueActive) return;
+  if (globalAudioQueue.length === 0) {
+    isPlayingQueue = false;
+    agentStates['mii1'] = 'LISTENING';
+    agentStates['mii2'] = 'LISTENING';
+    return;
+  }
+
+  isPlayingQueue = true;
+  const { agent, buffer } = globalAudioQueue.shift();
+
+  // Set the agent to speaking ONLY while the audio is actively playing!
+  agentStates['mii1'] = 'LISTENING';
+  agentStates['mii2'] = 'LISTENING';
+  agentStates[agent] = 'SPEAKING';
+
+  const source = audioContext.createBufferSource();
+  source.buffer = buffer;
+  source.connect(audioContext.destination);
+
+  source.onended = () => {
+    processAudioQueue();
+  };
+
+  source.start(0);
+}
+
+function playAudio(agent, base64Data) {
+  if (!isDialogueActive) return;
+
+  const floatData = base64ToFloat32(base64Data);
+  const buffer = audioContext.createBuffer(1, floatData.length, 24000);
+  buffer.getChannelData(0).set(floatData);
+
+  globalAudioQueue.push({ agent, buffer });
+
+  if (!isPlayingQueue) {
+    processAudioQueue();
+  }
+}
+
+function updateMiiVisuals(agent, now) {
+  const container = document.getElementById(agent === 'mii1' ? 'theater-mii-1' : 'theater-mii-2');
+  if (!container) return;
+
+  const miiData = JSON.parse(JSON.stringify(activeMiis[agent]));
+  
+  // Blinking logic
+  if (now - lastBlink > 4000 + Math.random() * 2000) {
+    isBlinking = true;
+    lastBlink = now;
+  }
+  if (isBlinking && now - lastBlink > 150) {
+    isBlinking = false;
+  }
+
+  if (isBlinking) {
+    miiData.appearance.face.eyeShape = 'sleepy';
+  }
+
+  // Mouth flapping logic
+  if (agentStates[agent] === 'SPEAKING') {
+    if (now - lastMouthSwap > 100) {
+      const idx = Math.floor(Math.random() * MOUTH_SHAPES_SPEAKING.length);
+      container.dataset.mouth = MOUTH_SHAPES_SPEAKING[idx];
+      lastMouthSwap = now;
+    }
+    miiData.appearance.face.mouthShape = container.dataset.mouth || 'open';
+  }
+
+  container.innerHTML = renderMii(miiData);
+}
+
+function animationLoop(timestamp) {
+  if (!isDialogueActive) return;
+
+  updateMiiVisuals('mii1', timestamp);
+  updateMiiVisuals('mii2', timestamp);
+
+  requestAnimationFrame(animationLoop);
+}
+
+
+/* ================================================================
    apps/mii-designer/main.js
    ================================================================ */
 
@@ -1756,6 +2042,7 @@ function downloadJson(filename, jsonString) {
  *
  * @module main
  */
+
 
 
 
@@ -1819,7 +2106,8 @@ const $name           = document.getElementById('mii-name');
 const $sliderIE       = document.getElementById('slider-introvert-extrovert');
 const $sliderCI       = document.getElementById('slider-calm-intense');
 const $sliderSS       = document.getElementById('slider-serious-silly');
-const $notes          = document.getElementById('mii-notes');
+const $notes          = document.getElementById('meta-notes');
+const $metaVoice      = document.getElementById('meta-voice');
 const $skinSwatches   = document.getElementById('skin-tone-swatches');
 const $bodyShapeRow   = document.getElementById('body-shape-row');
 const $outfitStyle    = document.getElementById('outfit-style');
@@ -1852,6 +2140,20 @@ const $btnImport      = document.getElementById('btn-import');
 const $galleryGrid    = document.getElementById('gallery-grid');
 const $galleryEmpty   = document.getElementById('gallery-empty');
 
+// Dialogue elements
+const $btnOpenDialogue = document.getElementById('btn-open-dialogue');
+const $btnCloseDialogue = document.getElementById('btn-close-dialogue');
+const $dialogueOverlay = document.getElementById('dialogue-overlay');
+const $dialogueSetup = document.getElementById('dialogue-setup');
+const $dialogueTheater = document.getElementById('dialogue-theater');
+const $dialogueMii1 = document.getElementById('dialogue-mii-1');
+const $dialogueMii2 = document.getElementById('dialogue-mii-2');
+const $dialogueTopic = document.getElementById('dialogue-topic');
+const $btnStartDialogue = document.getElementById('btn-start-dialogue');
+const $btnStopDialogue = document.getElementById('btn-stop-dialogue');
+const $dialogueStatus = document.getElementById('dialogue-status');
+const $theaterBubble1 = document.getElementById('theater-bubble-1');
+const $theaterBubble2 = document.getElementById('theater-bubble-2');
 /* ================================================================
    Build dynamic controls
    ================================================================ */
@@ -1927,8 +2229,9 @@ function wireControls() {
   $sliderSS.addEventListener('input', () =>
     setState({ personality: { seriousSilly: parseInt($sliderSS.value, 10) } }));
 
-  // Notes
+  // Meta
   $notes.addEventListener('input', () => setState({ meta: { notes: $notes.value } }));
+  $metaVoice.addEventListener('change', () => setState({ meta: { voice: $metaVoice.value } }));
 
   // Skin tone swatches
   $skinSwatches.addEventListener('click', (e) => {
@@ -2039,6 +2342,12 @@ function wireControls() {
   $btnNew.addEventListener('click', handleNew);
   $btnExportAll.addEventListener('click', handleExportAll);
   $btnImport.addEventListener('change', handleImport);
+
+  // Dialogue Mode
+  $btnOpenDialogue.addEventListener('click', handleOpenDialogue);
+  $btnCloseDialogue.addEventListener('click', handleCloseDialogue);
+  $btnStartDialogue.addEventListener('click', handleStartDialogue);
+  $btnStopDialogue.addEventListener('click', handleStopDialogue);
 }
 
 /* ================================================================
@@ -2149,6 +2458,97 @@ function handleImport(e) {
     e.target.value = '';
   };
   reader.readAsText(file);
+}
+
+/* ================================================================
+   Dialogue Handlers
+   ================================================================ */
+
+function handleOpenDialogue() {
+  const miis = listMiis();
+  if (miis.length < 2) {
+    showToast('You need at least 2 saved Miis to start a dialogue!', 'error');
+    return;
+  }
+  
+  $dialogueMii1.innerHTML = '';
+  $dialogueMii2.innerHTML = '';
+  miis.forEach(m => {
+    const opt1 = document.createElement('option');
+    opt1.value = m.id;
+    opt1.textContent = m.name;
+    $dialogueMii1.appendChild(opt1);
+
+    const opt2 = document.createElement('option');
+    opt2.value = m.id;
+    opt2.textContent = m.name;
+    $dialogueMii2.appendChild(opt2);
+  });
+  
+  if (miis.length > 1) {
+    $dialogueMii2.value = miis[1].id;
+  }
+
+  $dialogueOverlay.classList.remove('hidden');
+}
+
+function handleCloseDialogue() {
+  $dialogueOverlay.classList.add('hidden');
+  handleStopDialogue();
+}
+
+function handleStartDialogue() {
+  const miis = listMiis();
+  const m1 = miis.find(m => String(m.id) === $dialogueMii1.value);
+  const m2 = miis.find(m => String(m.id) === $dialogueMii2.value);
+  
+  if (m1.id === m2.id) {
+    showToast('Please select two DIFFERENT Miis.', 'error');
+    return;
+  }
+
+  $dialogueSetup.classList.add('hidden');
+  $dialogueTheater.classList.remove('hidden');
+  
+  $dialogueMii1.disabled = true;
+  $dialogueMii2.disabled = true;
+  $dialogueTopic.disabled = true;
+  $btnStartDialogue.disabled = true;
+
+  $theaterBubble1.classList.add('hidden');
+  $theaterBubble2.classList.add('hidden');
+  $theaterBubble1.textContent = '';
+  $theaterBubble2.textContent = '';
+
+  initDialogue(
+    m1, m2, $dialogueTopic.value, 
+    (status) => {
+      $dialogueStatus.textContent = status;
+    },
+    (agent, text, isPartial) => {
+      const bubble = agent === 'mii1' ? $theaterBubble1 : $theaterBubble2;
+      bubble.textContent = text;
+      bubble.classList.remove('hidden');
+      if (!isPartial) {
+        setTimeout(() => {
+          if (bubble.textContent === text) {
+            bubble.classList.add('hidden');
+          }
+        }, 3000);
+      }
+    }
+  );
+}
+
+function handleStopDialogue() {
+  stopDialogue();
+  $dialogueSetup.classList.remove('hidden');
+  $dialogueTheater.classList.add('hidden');
+  $dialogueMii1.disabled = false;
+  $dialogueMii2.disabled = false;
+  $dialogueTopic.disabled = false;
+  $btnStartDialogue.disabled = false;
+  $dialogueStatus.textContent = '';
 }
 
 /* ================================================================
@@ -2269,7 +2669,8 @@ function syncControlsToState() {
   $sliderIE.value = s.personality.introvertExtrovert;
   $sliderCI.value = s.personality.calmIntense;
   $sliderSS.value = s.personality.seriousSilly;
-  $notes.value   = s.meta.notes;
+  $notes.value   = s.meta.notes || '';
+  if (s.meta.voice) $metaVoice.value = s.meta.voice;
   $outfitStyle.value   = s.appearance.outfit.style;
   $primaryColor.value  = s.appearance.outfit.primaryColor;
   if (s.appearance.outfit.secondaryColor) {
