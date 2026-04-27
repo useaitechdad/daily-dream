@@ -21,16 +21,8 @@ let agentStates = {
   mii2: 'IDLE'
 };
 
-// Queue for incoming PCM buffers
-const audioQueue = {
-  mii1: [],
-  mii2: []
-};
-
-let nextPlayTime = {
-  mii1: 0,
-  mii2: 0
-};
+let nextAudioTime = 0;
+let speakingTimeout = null;
 
 // Visual tracking
 let lastMouthSwap = 0;
@@ -44,7 +36,7 @@ export function initDialogue(mii1, mii2, topic, onStateChange, onTranscript) {
   activeMiis.mii2 = mii2;
   
   if (!audioContext) {
-    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
   }
 
   if (audioContext.state === 'suspended') {
@@ -54,10 +46,8 @@ export function initDialogue(mii1, mii2, topic, onStateChange, onTranscript) {
   isDialogueActive = true;
   agentStates.mii1 = 'IDLE';
   agentStates.mii2 = 'IDLE';
-  nextPlayTime.mii1 = audioContext.currentTime;
-  nextPlayTime.mii2 = audioContext.currentTime;
-  globalAudioQueue = [];
-  isPlayingQueue = false;
+  
+  nextAudioTime = audioContext.currentTime;
 
   websocket = new WebSocket('ws://localhost:8000/ws');
 
@@ -157,37 +147,6 @@ function base64ToFloat32(base64) {
   return pcmFloat;
 }
 
-let globalAudioQueue = [];
-let isPlayingQueue = false;
-
-function processAudioQueue() {
-  if (!isDialogueActive) return;
-  if (globalAudioQueue.length === 0) {
-    isPlayingQueue = false;
-    agentStates['mii1'] = 'LISTENING';
-    agentStates['mii2'] = 'LISTENING';
-    return;
-  }
-
-  isPlayingQueue = true;
-  const { agent, buffer } = globalAudioQueue.shift();
-
-  // Set the agent to speaking ONLY while the audio is actively playing!
-  agentStates['mii1'] = 'LISTENING';
-  agentStates['mii2'] = 'LISTENING';
-  agentStates[agent] = 'SPEAKING';
-
-  const source = audioContext.createBufferSource();
-  source.buffer = buffer;
-  source.connect(audioContext.destination);
-
-  source.onended = () => {
-    processAudioQueue();
-  };
-
-  source.start(0);
-}
-
 function playAudio(agent, base64Data) {
   if (!isDialogueActive) return;
 
@@ -195,11 +154,34 @@ function playAudio(agent, base64Data) {
   const buffer = audioContext.createBuffer(1, floatData.length, 24000);
   buffer.getChannelData(0).set(floatData);
 
-  globalAudioQueue.push({ agent, buffer });
+  const source = audioContext.createBufferSource();
+  source.buffer = buffer;
+  source.connect(audioContext.destination);
 
-  if (!isPlayingQueue) {
-    processAudioQueue();
+  if (nextAudioTime < audioContext.currentTime) {
+    nextAudioTime = audioContext.currentTime;
   }
+
+  const startTime = nextAudioTime;
+  source.start(startTime);
+  nextAudioTime += buffer.duration;
+
+  const startDelayMs = Math.max(0, (startTime - audioContext.currentTime) * 1000);
+  const durationMs = buffer.duration * 1000;
+
+  setTimeout(() => {
+    if (!isDialogueActive) return;
+    agentStates['mii1'] = 'LISTENING';
+    agentStates['mii2'] = 'LISTENING';
+    agentStates[agent] = 'SPEAKING';
+  }, startDelayMs);
+
+  clearTimeout(speakingTimeout);
+  speakingTimeout = setTimeout(() => {
+    if (!isDialogueActive) return;
+    agentStates['mii1'] = 'LISTENING';
+    agentStates['mii2'] = 'LISTENING';
+  }, startDelayMs + durationMs + 100);
 }
 
 function updateMiiVisuals(agent, now) {
