@@ -46,7 +46,7 @@ Start by reading the three docs and producing the plan.
    ```
 4. Open Antigravity. `File → Open Folder` → pick the project folder.
 5. In the agent panel, switch to **Plan mode** (not Fast mode).
-6. In settings, verify the model is set to Gemini 3 Pro (Gemini 3 Flash works too but Pro handles multi-file planning better).
+6. In settings, verify the model is set to Gemini 3.1 Pro (Gemini 3 Flash works too but Pro handles multi-file planning better).
 7. Paste the prompt above into the chat.
 8. Review the plan artifact when it appears. Comment on anything you want changed. Then approve.
 
